@@ -17,16 +17,17 @@ export default function ExamPage() {
   const [fragen, setFragen] = useState<Frage[]>([])
   const [aktuelleFrage, setAktuelleFrage] = useState(0)
   const [answered, setAnswered] = useState<boolean[]>([])
+  const [correctCount, setCorrectCount] = useState(0)
+  const [answeredCount, setAnsweredCount] = useState(0)
 
   useEffect(() => {
     const fetchFragen = async () => {
       const res = await fetch('/api/exam/questions')
-      // const data = await res.json()
       const raw: Frage[] = await res.json()
 
       const expanded = raw.flatMap((frage) => {
         const weight = Math.max(1, 5 - (frage.nextRound ?? 0))
-      
+
         const parsedFrage: Frage = {
           id: frage.id,
           question: frage.question,
@@ -36,19 +37,20 @@ export default function ExamPage() {
           explanationWrong: Array.isArray(frage.explanationWrong) ? frage.explanationWrong : JSON.parse(frage.explanationWrong),
           nextRound: frage.nextRound,
         }
-      
+
         return Array(weight).fill(parsedFrage)
       })
-    
-      // Falls weniger als 40: erweitern durch Wiederholung
+
       let final = [...expanded]
       while (final.length < 40) {
         final = [...final, ...expanded]
       }
-    
+
       const shuffled = final.sort(() => Math.random() - 0.5).slice(0, 40)
       setFragen(shuffled)
       setAnswered(new Array(shuffled.length).fill(false))
+      setCorrectCount(0)
+      setAnsweredCount(0)
     }
 
     fetchFragen()
@@ -58,12 +60,19 @@ export default function ExamPage() {
 
   const aktuelle = fragen[aktuelleFrage]
 
-  const handleNext = () => {
+  const handleNext = (wasCorrect: boolean) => {
     setAnswered((prev) => {
       const updated = [...prev]
       updated[aktuelleFrage] = true
       return updated
     })
+
+    setAnsweredCount((prev) => prev + 1)
+
+    if (wasCorrect) {
+      setCorrectCount((prev) => prev + 1)
+    }
+
     setAktuelleFrage((prev) => Math.min(prev + 1, fragen.length - 1))
   }
 
@@ -85,6 +94,8 @@ export default function ExamPage() {
         total={fragen.length}
         onJumpTo={handleJumpTo}
         answered={answered}
+        correctCount={correctCount}
+        answeredCount={answeredCount}
       />
     </div>
   )

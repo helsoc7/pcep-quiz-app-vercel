@@ -1,6 +1,6 @@
 "use client"
 
-import { Eye, Paperclip, FileText } from "lucide-react"
+import { Eye, Paperclip, FileText, HelpCircle } from "lucide-react"
 import Link from "next/link"
 import AuthControl from "@/components/AuthControl"
 
@@ -19,6 +19,10 @@ export default function Header() {
         <Link href="/dashboard" className="flex items-center gap-2 hover:text-black transition">
           <FileText className="h-4 w-4" />
           Dashboard
+        </Link>
+        <Link href="/faq" className="flex items-center gap-2 hover:text-black transition">
+          <HelpCircle className="h-4 w-4" />
+          FAQ
         </Link>
       </nav>
             {/* Login-Button mit Abstand */}

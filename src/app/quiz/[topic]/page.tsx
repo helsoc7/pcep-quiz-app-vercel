@@ -18,6 +18,8 @@ export default function QuizPage() {
   const [fragen, setFragen] = useState<Frage[]>([])
   const [aktuelleFrage, setAktuelleFrage] = useState(0)
   const [answered, setAnswered] = useState<boolean[]>([])
+  const [correctCount, setCorrectCount] = useState(0)
+  const [answeredCount, setAnsweredCount] = useState(0)
 
   useEffect(() => {
     const fetchFragen = async () => {
@@ -25,6 +27,8 @@ export default function QuizPage() {
       const data = await res.json()
       setFragen(data)
       setAnswered(new Array(data.length).fill(false))
+      setCorrectCount(0)
+      setAnsweredCount(0)
     }
     fetchFragen()
   }, [topic])
@@ -33,12 +37,19 @@ export default function QuizPage() {
 
   const aktuelle = fragen[aktuelleFrage]
 
-  const handleNext = () => {
+  const handleNext = (wasCorrect: boolean) => {
     setAnswered((prev) => {
-        const updated = [...prev]
-        updated[aktuelleFrage] = true
-        return updated
-      })
+      const updated = [...prev]
+      updated[aktuelleFrage] = true
+      return updated
+    })
+
+    setAnsweredCount((prev) => prev + 1)
+
+    if (wasCorrect) {
+      setCorrectCount((prev) => prev + 1)
+    }
+
     setAktuelleFrage((prev) => Math.min(prev + 1, fragen.length - 1))
   }
 
@@ -60,6 +71,8 @@ export default function QuizPage() {
         total={fragen.length}
         onJumpTo={handleJumpTo}
         answered={answered}
+        correctCount={correctCount}
+        answeredCount={answeredCount}
       />
     </div>
   )

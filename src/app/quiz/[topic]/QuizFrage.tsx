@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import ReactMarkdown from "react-markdown"
 import rehypeHighlight from "rehype-highlight"
 import "highlight.js/styles/github.css"
+import { Progress } from "@/components/ui/progress"
 
 type QuestionProps = {
   id: string
@@ -15,11 +16,13 @@ type QuestionProps = {
   correctIndex: number
   explanation: string
   explanationWrong: string[]
-  onNext?: () => void
+  onNext?: (wasCorrect: boolean) => void
   currentIndex?: number
   total?: number
   onJumpTo?: (index: number) => void
   answered?: boolean[]
+  correctCount?: number
+  answeredCount?: number
 }
 
 export default function QuizFrage({
@@ -33,7 +36,9 @@ export default function QuizFrage({
   currentIndex,
   total,
   onJumpTo,
-  answered
+  answered,
+  correctCount,
+  answeredCount
 }: QuestionProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [submitted, setSubmitted] = useState(false)
@@ -48,15 +53,14 @@ export default function QuizFrage({
       setSubmitted(true)
     }
 
-    // Fortschritt an Backend senden
     await fetch("/api/progress", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          questionId: id,
-          correct: selectedIndex === correctIndex,
-        }),
-      });
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        questionId: id,
+        correct: selectedIndex === correctIndex,
+      }),
+    })
   }
 
   const isCorrect = selectedIndex === correctIndex
@@ -67,25 +71,35 @@ export default function QuizFrage({
         {/* Fortschrittsleiste */}
         {typeof currentIndex === "number" && typeof total === "number" && (
           <div className="flex justify-center gap-0.5 mb-4">
-{Array.from({ length: total }).map((_, index) => {
-  const isActive = index === currentIndex
-  const isDone = answered?.[index]
+            {Array.from({ length: total }).map((_, index) => {
+              const isActive = index === currentIndex
+              const isDone = answered?.[index]
 
-  return (
-    <button
-      key={index}
-      className={`w-6 h-6 rounded-full border transition hover:scale-105
-        ${isActive ? "bg-primary" :
-          isDone ? "bg-gray-300" : "bg-muted"}`}
-      onClick={() => onJumpTo?.(index)}
-      title={`Frage ${index + 1}`}
-    />
-  )
-})}
+              return (
+                <button
+                  key={index}
+                  className={`w-6 h-6 rounded-full border transition hover:scale-105
+                    ${isActive ? "bg-primary" :
+                      isDone ? "bg-gray-300" : "bg-muted"}`}
+                  onClick={() => onJumpTo?.(index)}
+                  title={`Frage ${index + 1}`}
+                />
+              )
+            })}
           </div>
         )}
 
-        {/* Frage */}
+        {/* Richtige Antworten Skala */}
+        {typeof correctCount === "number" && typeof answeredCount === "number" && answeredCount > 0 && (
+          <div className="mb-6">
+            <p className="text-sm mb-1 text-muted-foreground">
+              Richtige Antworten: {correctCount} von {answeredCount} ({Math.round((correctCount / answeredCount) * 100)}%)
+            </p>
+            <Progress value={(correctCount / answeredCount) * 100} />
+          </div>
+        )}
+
+        {/* Frage anzeigen */}
         <ReactMarkdown
           rehypePlugins={[rehypeHighlight]}
           components={{
@@ -117,8 +131,8 @@ export default function QuizFrage({
                   isCorrectAnswer && submitted
                     ? "ring-2 ring-green-500"
                     : isWrongAnswer
-                    ? "ring-2 ring-red-500"
-                    : ""
+                      ? "ring-2 ring-red-500"
+                      : ""
                 }`}
               >
                 <ReactMarkdown
@@ -152,7 +166,6 @@ export default function QuizFrage({
               <AlertTitle>{isCorrect ? "✅ Richtig!" : "❌ Falsch!"}</AlertTitle>
               <AlertDescription className="mt-2 text-sm space-y-2">
                 <p>{explanation}</p>
-
                 {!isCorrect && selectedIndex !== null && explanationWrong[selectedIndex] && (
                   <div className="text-muted-foreground">
                     <p className="font-semibold mt-4">Warum war deine Antwort falsch?</p>
@@ -162,7 +175,11 @@ export default function QuizFrage({
               </AlertDescription>
             </Alert>
 
-            <Button onClick={onNext} className="mt-4 w-full" variant="default">
+            <Button
+              onClick={() => onNext?.(isCorrect)} // ✅ übergibt nur ob korrekt
+              className="mt-4 w-full"
+              variant="default"
+            >
               Nächste Frage
             </Button>
           </>
