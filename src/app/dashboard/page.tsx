@@ -4,18 +4,32 @@ import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from "recharts"
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Cell,
+  Tooltip,
+  RadialBarChart,
+  RadialBar,
+} from "recharts"
 import { Info } from "lucide-react"
 import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card"
 
-const COLORS = ["#22c55e", "#eab308", "#ef4444"]
+// Dezente Farben (grau + etwas Blau)
+const BAR_COLORS = ["#D9ED92", "#B5E48C", "#99D98C", "#76C893", "#52B69A", "#34A0A4"]
+const PROGRESS_FILL = "#52B69A"
+const PROGRESS_BG = "#DAD7CD"
 
 export default function DashboardPage() {
   const { data: session, status } = useSession()
-  const [summary, setSummary] = useState<Record<string, { easy: number; medium: number; hard: number }> | null>(null)
-  const [rounds, setRounds] = useState<Record<number, number> | null>(null)
-  const [loadingSummary, setLoadingSummary] = useState(true)
+  const [summary, setSummary] = useState<{
+    rounds: number[]
+    progressByTopic: Record<string, number>
+    overallProgress: number
+  } | null>(null)
 
   useEffect(() => {
     const fetchSummary = async () => {
@@ -23,11 +37,9 @@ export default function DashboardPage() {
         const res = await fetch("/api/progress/summary")
         if (res.ok) {
           const data = await res.json()
-          setSummary(data.topics)
-          setRounds(data.rounds)
+          setSummary(data)
         }
       } finally {
-        setLoadingSummary(false)
       }
     }
 
@@ -44,19 +56,10 @@ export default function DashboardPage() {
 
   const user = session.user
 
-  const roundData = rounds ? [
-    { round: "Box 0", value: rounds[0] || 0 },
-    { round: "Box 1", value: rounds[1] || 0 },
-    { round: "Box 2", value: rounds[2] || 0 },
-    { round: "Box 3", value: rounds[3] || 0 },
-    { round: "Box 4", value: rounds[4] || 0 },
-    {
-      round: "Box 5+",
-      value: Object.entries(rounds)
-        .filter(([k]) => Number(k) > 4)
-        .reduce((sum, [, v]) => sum + v, 0),
-    },
-  ] : []
+  const roundData = summary?.rounds?.map((count: number, i: number) => ({
+    round: i < 5 ? `Box ${i}` : "Box 5+",
+    value: count,
+  })) ?? []
 
   return (
     <main className="p-6 max-w-5xl mx-auto space-y-6">
@@ -80,7 +83,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* Karteikasten Fortschritt */}
-      {rounds && (
+      {roundData.length > 0 && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
@@ -92,7 +95,7 @@ export default function DashboardPage() {
                 <HoverCardContent className="w-80 text-sm">
                   <p className="font-medium mb-1">Was ist das Karteikasten-System?</p>
                   <p>
-                    Du beginnst in <strong>Box 0</strong>. Für jede richtig beantwortete Frage steigst du eine Box auf, bis <strong>Box 5+</strong>. Falsch beantwortete Fragen landen wieder in <strong>Box 0</strong>.
+                    Du beginnst in <strong>Box 0</strong>. Falsch beantwortete Fragen landen hier. Richtige Antworten bringen dich Schritt für Schritt bis <strong>Box 5+</strong>.
                   </p>
                 </HoverCardContent>
               </HoverCard>
@@ -106,12 +109,7 @@ export default function DashboardPage() {
                 <Tooltip />
                 <Bar dataKey="value">
                   {roundData.map((_, index) => (
-                    <Cell
-                      key={index}
-                      fill={
-                        ["#ef4444", "#eab308", "#22c55e", "#16a34a", "#15803d", "#065f46"][index] || "#a3a3a3"
-                      }
-                    />
+                    <Cell key={index} fill={BAR_COLORS[index] || "#d1d5db"} />
                   ))}
                 </Bar>
               </BarChart>
@@ -120,53 +118,94 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Fortschrittsübersicht */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {loadingSummary && (
-          <>
-            <Skeleton className="h-[200px] w-full" />
-            <Skeleton className="h-[200px] w-full" />
-          </>
-        )}
+      {/* Fortschrittsübersicht pro Thema */}
+      {summary?.progressByTopic && (
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {Object.entries(summary.progressByTopic).map(([topic, percent]: [string, number]) => (
+            <Card key={topic}>
+              <CardHeader>
+                <CardTitle>{topic}</CardTitle>
+              </CardHeader>
+              <CardContent className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadialBarChart
+                    innerRadius="70%"
+                    outerRadius="100%"
+                    data={[
+                      { name: "Max", value: 100, fill: PROGRESS_BG },
+                      { name: topic, value: percent, fill: PROGRESS_FILL },
+                    ]}
+                    startAngle={90}
+                    endAngle={-270}
+                  >
+                    <RadialBar
+                      background
+                      dataKey="value"
+                      label={({ cx, cy }) => (
+                        <text
+                          x={cx}
+                          y={cy}
+                          fill="#111827"
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          className="text-sm"
+                        >
+                          {`${percent}%`}
+                        </text>
+                      )}
+                    />
+                    <Tooltip formatter={(value) => `${value}%`} />
+                  </RadialBarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
-        {summary &&
-          Object.entries(summary).map(([topic, stats]) => {
-            const data = [
-              { name: "Leicht", value: stats.easy },
-              { name: "Mittel", value: stats.medium },
-              { name: "Schwer", value: stats.hard },
-            ]
-
-            return (
-              <Card key={topic}>
-                <CardHeader>
-                  <CardTitle>{topic}</CardTitle>
-                </CardHeader>
-                <CardContent className="h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={data}
-                        dataKey="value"
-                        nameKey="name"
-                        outerRadius={60}
-                        label
-                      >
-                        {data.map((_, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={COLORS[index % COLORS.length]}
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            )
-          })}
-      </div>
+      {/* Gesamtfortschritt */}
+      {summary?.overallProgress !== undefined && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Gesamtfortschritt</CardTitle>
+          </CardHeader>
+          <CardContent className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadialBarChart
+                cx="50%"
+                cy="50%"
+                innerRadius="70%"
+                outerRadius="100%"
+                barSize={15}
+                data={[
+                  { name: "Max", value: 100, fill: PROGRESS_BG },
+                  { name: "Gesamt", value: summary.overallProgress, fill: PROGRESS_FILL },
+                ]}
+                startAngle={90}
+                endAngle={-270}
+              >
+                <RadialBar
+                  background
+                  dataKey="value"
+                  label={({ cx, cy }) => (
+                    <text
+                      x={cx}
+                      y={cy}
+                      fill="#111827"
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      className="text-sm"
+                    >
+                      {`${summary.overallProgress}%`}
+                    </text>
+                  )}
+                />
+                <Tooltip formatter={(value) => `${value}%`} />
+              </RadialBarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
     </main>
   )
 }

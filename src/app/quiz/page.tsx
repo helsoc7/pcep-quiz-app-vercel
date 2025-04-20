@@ -7,10 +7,10 @@ import Link from "next/link"
 const kategorien = [
   { slug: "Grundlagen", titel: "Python Grundlagen", beschreibung: "Geschichte, Zen of Python, Interpreter, ..." },
   { slug: "Datentypen", titel: "Datentypen & Operatoren", beschreibung: "int, float, str, bool, +, - ..." },
-  { slug: "print_input", titel: "Print, Input und If-Else", beschreibung: "print('Hallo'), input('Gib...'), if True: " },
-  { slug: "loops", titel: "Schleifen", beschreibung: "for, while" },
-  { slug: "datastructures", titel: "Datenstrukturen", beschreibung: "dict, list, set, tuple" },
-  { slug: "module", titel: "Funktionen, Module und Ausnahmebehandlung", beschreibung: "import, from, as, pip ..." },
+  { slug: "Print_Input", titel: "Print, Input und If-Else", beschreibung: "print('Hallo'), input('Gib...'), if True: " },
+  { slug: "Schleifen", titel: "Schleifen", beschreibung: "for, while" },
+  { slug: "Datenstrukturen", titel: "Datenstrukturen", beschreibung: "dict, list, set, tuple" },
+  { slug: "Funktionen", titel: "Funktionen, Module und Ausnahmebehandlung", beschreibung: "import, from, as, pip ..." },
 ]
 
 export default function QuizThemenPage() {
