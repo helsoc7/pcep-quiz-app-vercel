@@ -1,12 +1,11 @@
-// app/api/exam/questions/route.ts
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { PrismaClient } from "@prisma/client"
 
 const prisma = new PrismaClient()
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const session = await getServerSession(authOptions)
 
   if (!session?.user?.email) {
@@ -28,28 +27,28 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "User nicht gefunden" }, { status: 404 })
   }
 
-  // Gewichtete Auswahl: Je niedriger nextRound, desto höher die Wahrscheinlichkeit
-  const weighted: { question: any; weight: number }[] = []
-
-  for (const p of user.progress) {
+  // Gewichtete Auswahl: Je niedriger nextRound, desto häufiger die Frage
+  const weighted = user.progress.map((p) => {
     const nextRound = p.nextRound ?? 0
-    const weight = Math.max(1, 5 - Math.min(nextRound, 5)) // Box 0 -> 5 Punkte, Box 5+ -> 1 Punkt
-    weighted.push({ question: p.question, weight })
-  }
+    const weight = Math.max(1, 5 - Math.min(nextRound, 5))
+    return { question: p.question, weight }
+  })
 
-  // Shuffle + Gewichtung: Mehrfache Einträge je Gewichtung
-  const pool = weighted.flatMap((entry) => Array(entry.weight).fill(entry.question))
-  const shuffled = pool.sort(() => Math.random() - 0.5)
+  const pool = weighted.flatMap(({ question, weight }) =>
+    Array(weight).fill(question)
+  )
 
-  // Einzigartige Fragen in zufälliger Reihenfolge (limit 10 z.B.)
-  const unique: Record<string, any> = {}
-  const selected: any[] = []
+  const shuffled = [...pool].sort(() => Math.random() - 0.5)
+
+  const seen = new Set<string>()
+  const selected = []
+
   for (const q of shuffled) {
-    if (!unique[q.id]) {
+    if (!seen.has(q.id)) {
       selected.push(q)
-      unique[q.id] = true
+      seen.add(q.id)
     }
-    if (selected.length >= 10) break
+    if (selected.length >= 40) break
   }
 
   return NextResponse.json(selected)

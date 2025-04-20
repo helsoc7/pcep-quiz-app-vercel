@@ -89,6 +89,7 @@ export default function QuizFrage({
         <ReactMarkdown
           rehypePlugins={[rehypeHighlight]}
           components={{
+            /* eslint-disable @typescript-eslint/no-unused-vars */
             h1: ({ node, ...props }) => <h1 className="text-2xl font-bold" {...props} />,
             h2: ({ node, ...props }) => <h2 className="text-xl font-semibold mt-4" {...props} />,
             pre: ({ node, ...props }) => <pre className="bg-gray-100 p-4 rounded overflow-auto" {...props} />,

@@ -1,29 +1,56 @@
-// src/lib/auth.ts
-import { PrismaAdapter } from "@next-auth/prisma-adapter"
-import { getServerSession } from "next-auth"
-import GithubProvider from "next-auth/providers/github"
+// src/app/api/auth/[...nextauth]/route.ts
+import NextAuth, { AuthOptions, Session, User as NextAuthUser } from "next-auth"
+import GitHub from "next-auth/providers/github"
+import Google from "next-auth/providers/google"
 import { PrismaClient } from "@prisma/client"
-import type { NextAuthOptions } from "next-auth"
+import type { AdapterUser } from "next-auth/adapters"
 
 const prisma = new PrismaClient()
 
-export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+export const authOptions: AuthOptions = {
   providers: [
-    GithubProvider({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    GitHub({
+      clientId: process.env.GITHUB_ID!,
+      clientSecret: process.env.GITHUB_SECRET!,
+    }),
+    Google({
+      clientId: process.env.GOOGLE_ID!,
+      clientSecret: process.env.GOOGLE_SECRET!,
     }),
   ],
-  session: {
-    strategy: "jwt",
-  },
   callbacks: {
-    session: async ({ session, token }) => {
-      session.user.id = token.sub!
+    async signIn({ user }: { user: NextAuthUser | AdapterUser }) {
+      try {
+        await prisma.user.upsert({
+          where: { email: user.email! },
+          update: {
+            name: user.name ?? undefined,
+          },
+          create: {
+            email: user.email!,
+            name: user.name ?? "",
+          },
+        })
+        return true
+      } catch (err) {
+        console.error("❌ Fehler beim Speichern des Users:", err)
+        return false
+      }
+    },
+    async session({ session }: { session: Session }) {
+      const dbUser = await prisma.user.findUnique({
+        where: { email: session.user?.email ?? "" },
+      })
+
+      if (dbUser) {
+        // @ts-expect-error – user.id ist in DefaultSession.User nicht enthalten
+        session.user.id = dbUser.id
+      }
+
       return session
     },
   },
 }
 
-export const getAuthSession = () => getServerSession(authOptions)
+const handler = NextAuth(authOptions)
+export { handler as GET, handler as POST }

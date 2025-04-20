@@ -1,15 +1,14 @@
 // src/app/api/questions/[topic]/route.ts
-import { NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 const prisma = new PrismaClient()
-
-export async function GET(req: NextRequest, context: { params: { topic: string } }) {
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export async function GET(_req: NextRequest, context: any) {
   const topic = context.params.topic
 
   const questions = await prisma.question.findMany({
-    where: { topic } // oder zufällig mit: orderBy: { createdAt: 'asc' }
+    where: { topic },
   })
 
   return NextResponse.json(

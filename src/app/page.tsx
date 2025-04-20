@@ -17,7 +17,7 @@ export default function Home() {
           className="mb-6"
         />
         <p className="italic text-gray-500 mb-8">
-          "Bereit für die PCEP-Prüfung? Teste dein Wissen jetzt – im Spaced-Repetition-Modus!"
+          Bereit für die PCEP-Prüfung? Teste dein Wissen jetzt – im Spaced-Repetition-Modus!
         </p>
       <Link href="/quiz">
         <Button>

@@ -21,19 +21,22 @@ export default function ExamPage() {
   useEffect(() => {
     const fetchFragen = async () => {
       const res = await fetch('/api/exam/questions')
-      const data = await res.json()
+      // const data = await res.json()
+      const raw: Frage[] = await res.json()
 
-      const expanded = data.flatMap((frage: any) => {
+      const expanded = raw.flatMap((frage) => {
         const weight = Math.max(1, 5 - (frage.nextRound ?? 0))
-        const parsedFrage = {
+      
+        const parsedFrage: Frage = {
           id: frage.id,
           question: frage.question,
-          answers: JSON.parse(frage.answers),
+          answers: Array.isArray(frage.answers) ? frage.answers : JSON.parse(frage.answers),
           correctIndex: frage.correctIndex,
           explanation: frage.explanation,
-          explanationWrong: JSON.parse(frage.explanationWrong),
+          explanationWrong: Array.isArray(frage.explanationWrong) ? frage.explanationWrong : JSON.parse(frage.explanationWrong),
           nextRound: frage.nextRound,
         }
+      
         return Array(weight).fill(parsedFrage)
       })
     
