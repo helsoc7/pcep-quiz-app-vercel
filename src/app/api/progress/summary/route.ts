@@ -16,11 +16,17 @@ export async function GET() {
     where: { email: session.user.email },
     include: {
       progress: {
-        include: {
-          question: true,
-        },
-      },
-    },
+        select: {
+          nextRound: true,
+          question: {
+            select: {
+              topic: true,
+              level: true
+            }
+          }
+        }
+      }
+    }
   })
 
   if (!user) {
