@@ -27,18 +27,17 @@ export async function GET() {
     return NextResponse.json({ error: "User nicht gefunden" }, { status: 404 })
   }
 
-  
-
+  // Wenn User keine Progress-Daten hat -> alle Fragen aus DB
   if (user.progress.length === 0) {
     console.log("progress ist leer")
     const allQuestions = await prisma.question.findMany()
-    return NextResponse.json(allQuestions.slice(0, 40)) // oder random shuffle
+    return NextResponse.json(allQuestions.slice(0, 40)) // oder shuffle
   }
 
-  // Gewichtete Auswahl: Je niedriger nextRound, desto häufiger die Frage
+  // Gewichtete Auswahl: Je niedriger nextRound, desto häufiger
   const weighted = user.progress.map((p) => {
     const nextRound = p.nextRound ?? 0
-    const weight = Math.max(1, 5 - Math.min(nextRound, 5))
+    const weight = Math.max(1, 5 - Math.min(nextRound, 5)) // Box 0 = 5x, Box 5+ = 1x
     return { question: p.question, weight }
   })
 
@@ -46,12 +45,10 @@ export async function GET() {
     Array(weight).fill(question)
   )
 
-  
-
   const shuffled = [...pool].sort(() => Math.random() - 0.5)
 
   const seen = new Set<string>()
-  const selected = []
+  const selected: typeof pool = []
 
   for (const q of shuffled) {
     if (!seen.has(q.id)) {
@@ -61,9 +58,24 @@ export async function GET() {
     if (selected.length >= 40) break
   }
 
+  // 👇 Ergänzen falls weniger als 40
+  if (selected.length < 40) {
+    const additional = await prisma.question.findMany({
+      where: {
+        id: {
+          notIn: Array.from(seen),
+        },
+      },
+      take: 40 - selected.length,
+    })
+
+    selected.push(...additional)
+  }
+
   console.log("User Progress Count:", user.progress.length)
-console.log("Pool Size:", pool.length)
-console.log("Selected Questions:", selected.length)
+  console.log("Pool Size:", pool.length)
+  console.log("Selected Questions:", selected.length)
 
   return NextResponse.json(selected)
 }
+
