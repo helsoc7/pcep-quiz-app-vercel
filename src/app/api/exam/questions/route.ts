@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { PrismaClient } from "@prisma/client"
-
-const prisma = new PrismaClient()
+import { prisma } from "@/lib/prisma"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -12,43 +10,70 @@ export async function GET() {
     return NextResponse.json({ error: "Nicht eingeloggt" }, { status: 401 })
   }
 
+  // 1️⃣ User-ID laden (ohne Progress direkt)
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
-    include: {
-      progress: {
-        include: {
-          question: true,
-        },
-      },
-    },
+    select: { id: true },
   })
 
   if (!user) {
     return NextResponse.json({ error: "User nicht gefunden" }, { status: 404 })
   }
 
-  // Wenn User keine Progress-Daten hat -> alle Fragen aus DB
-  if (user.progress.length === 0) {
-    console.log("progress ist leer")
-    const allQuestions = await prisma.question.findMany()
-    return NextResponse.json(allQuestions.slice(0, 40)) // oder shuffle
-  }
+  console.time("Progress laden")
 
-  // Gewichtete Auswahl: Je niedriger nextRound, desto häufiger
-  const weighted = user.progress.map((p) => {
-    const nextRound = p.nextRound ?? 0
-    const weight = Math.max(1, 5 - Math.min(nextRound, 5)) // Box 0 = 5x, Box 5+ = 1x
-    return { question: p.question, weight }
+  // 2️⃣ Nur Progress laden (mit questionId + nextRound)
+  const progress = await prisma.userProgress.findMany({
+    where: { userId: user.id },
+    select: {
+      questionId: true,
+      nextRound: true,
+    },
   })
 
-  const pool = weighted.flatMap(({ question, weight }) =>
-    Array(weight).fill(question)
-  )
+  console.timeEnd("Progress laden")
 
-  const shuffled = [...pool].sort(() => Math.random() - 0.5)
+  // 3️⃣ Wenn leer: Alle Fragen als Fallback
+  if (progress.length === 0) {
+    console.log("progress ist leer")
+    const allQuestions = await prisma.question.findMany({
+      take: 40,
+    })
+    return NextResponse.json(allQuestions)
+  }
 
+  // 4️⃣ Nur relevante Fragen laden
+  const questionIds = progress.map(p => p.questionId)
+
+  console.time("Fragen laden")
+  const questions = await prisma.question.findMany({
+    where: { id: { in: questionIds } },
+    select: {
+      id: true,
+      question: true,
+      answers: true,
+      correctIndex: true,
+      topic: true,
+      explanation: true,
+      explanationWrong: true,
+    },
+  })
+  console.timeEnd("Fragen laden")
+
+  // 5️⃣ Fragen map für schnellen Zugriff
+  const questionMap = new Map(questions.map(q => [q.id, q]))
+
+  // 6️⃣ Gewichtung: Fragen häufiger je nach nextRound
+  const weightedPool = progress.flatMap(p => {
+    const weight = Math.max(1, 5 - Math.min(p.nextRound ?? 0, 5))
+    const question = questionMap.get(p.questionId)
+    return question ? Array(weight).fill(question) : []
+  })
+
+  // 7️⃣ Shuffle & Auswahl
+  const shuffled = [...weightedPool].sort(() => Math.random() - 0.5)
   const seen = new Set<string>()
-  const selected: typeof pool = []
+  const selected: typeof questions = []
 
   for (const q of shuffled) {
     if (!seen.has(q.id)) {
@@ -58,24 +83,9 @@ export async function GET() {
     if (selected.length >= 40) break
   }
 
-  // 👇 Ergänzen falls weniger als 40
-  if (selected.length < 40) {
-    const additional = await prisma.question.findMany({
-      where: {
-        id: {
-          notIn: Array.from(seen),
-        },
-      },
-      take: 40 - selected.length,
-    })
-
-    selected.push(...additional)
-  }
-
-  console.log("User Progress Count:", user.progress.length)
-  console.log("Pool Size:", pool.length)
-  console.log("Selected Questions:", selected.length)
+  console.log("Progress Count:", progress.length)
+  console.log("Pool Size:", weightedPool.length)
+  console.log("Selected:", selected.length)
 
   return NextResponse.json(selected)
 }
-
