@@ -166,12 +166,19 @@ export default function QuizFrage({
               <AlertTitle>{isCorrect ? "✅ Richtig!" : "❌ Falsch!"}</AlertTitle>
               <AlertDescription className="mt-2 text-sm space-y-2">
                 <p>{explanation}</p>
-                {!isCorrect && selectedIndex !== null && explanationWrong[selectedIndex] && (
-                  <div className="text-muted-foreground">
-                    <p className="font-semibold mt-4">Warum war deine Antwort falsch?</p>
-                    <p className="mt-1">{explanationWrong[selectedIndex]}</p>
-                  </div>
-                )}
+                {!isCorrect && selectedIndex !== null && (
+  <div className="text-muted-foreground">
+    <p className="font-semibold mt-4">Warum war deine Antwort falsch?</p>
+    <p className="mt-1">
+      {
+        // Map selectedIndex to the correct position in explanationWrong
+        explanationWrong[
+          [...answers.keys()].filter((i) => i !== correctIndex).indexOf(selectedIndex)
+        ] ?? "Keine Erklärung verfügbar."
+      }
+    </p>
+  </div>
+)}
               </AlertDescription>
             </Alert>
 
