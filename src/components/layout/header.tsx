@@ -8,11 +8,11 @@ export default function Header() {
   return (
     <header className="w-full flex justify-center py-6">
       <nav className="flex space-x-8 text-sm text-gray-500 items-center">
-        <Link href="exam-mode" className="flex items-center gap-2 hover:text-black transition">
+        <Link href="/exam-mode" className="flex items-center gap-2 hover:text-black transition">
           <Eye className="h-4 w-4" />
           Prüfungsmodus
         </Link>
-        <Link href="quiz" className="flex items-center gap-2 hover:text-black transition">
+        <Link href="/quiz" className="flex items-center gap-2 hover:text-black transition">
           <Paperclip className="h-4 w-4" />
           Fragenkatalog
         </Link>
