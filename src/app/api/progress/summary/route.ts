@@ -15,18 +15,18 @@ export async function GET() {
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
     include: {
-      progress: {
+  progress: {
+    select: {
+      nextRound: true,
+      question: {
         select: {
-          nextRound: true,
-          question: {
-            select: {
-              topic: true,
-              level: true
-            }
-          }
+          topic: true,
+          level: true
         }
       }
     }
+  }
+}
   })
 
   if (!user) {

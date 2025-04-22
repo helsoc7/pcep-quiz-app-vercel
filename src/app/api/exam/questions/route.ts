@@ -27,6 +27,14 @@ export async function GET() {
     return NextResponse.json({ error: "User nicht gefunden" }, { status: 404 })
   }
 
+  
+
+  if (user.progress.length === 0) {
+    console.log("progress ist leer")
+    const allQuestions = await prisma.question.findMany()
+    return NextResponse.json(allQuestions.slice(0, 40)) // oder random shuffle
+  }
+
   // Gewichtete Auswahl: Je niedriger nextRound, desto häufiger die Frage
   const weighted = user.progress.map((p) => {
     const nextRound = p.nextRound ?? 0
@@ -37,6 +45,8 @@ export async function GET() {
   const pool = weighted.flatMap(({ question, weight }) =>
     Array(weight).fill(question)
   )
+
+  
 
   const shuffled = [...pool].sort(() => Math.random() - 0.5)
 
@@ -50,6 +60,10 @@ export async function GET() {
     }
     if (selected.length >= 40) break
   }
+
+  console.log("User Progress Count:", user.progress.length)
+console.log("Pool Size:", pool.length)
+console.log("Selected Questions:", selected.length)
 
   return NextResponse.json(selected)
 }

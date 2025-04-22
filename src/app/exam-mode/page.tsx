@@ -23,6 +23,7 @@ export default function ExamPage() {
   useEffect(() => {
     const fetchFragen = async () => {
       const res = await fetch('/api/exam/questions')
+      console.log(await res.json())
       const raw: Frage[] = await res.json()
 
       const expanded = raw.flatMap((frage) => {
