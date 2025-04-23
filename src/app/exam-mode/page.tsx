@@ -7,7 +7,7 @@ type Frage = {
   id: string
   question: string
   answers: string[]
-  correctIndex: number
+  correctIndexes: number[]
   explanation: string
   explanationWrong: string[]
   nextRound?: number
@@ -33,7 +33,7 @@ export default function ExamPage() {
           id: frage.id,
           question: frage.question,
           answers: Array.isArray(frage.answers) ? frage.answers : JSON.parse(frage.answers),
-          correctIndex: frage.correctIndex,
+          correctIndexes: frage.correctIndexes,
           explanation: frage.explanation,
           explanationWrong: Array.isArray(frage.explanationWrong) ? frage.explanationWrong : JSON.parse(frage.explanationWrong),
           nextRound: frage.nextRound,
@@ -87,7 +87,7 @@ export default function ExamPage() {
         id={aktuelle.id}
         question={aktuelle.question}
         answers={aktuelle.answers}
-        correctIndex={aktuelle.correctIndex}
+        correctIndexes={aktuelle.correctIndexes}
         explanation={aktuelle.explanation}
         explanationWrong={aktuelle.explanationWrong}
         onNext={aktuelleFrage < fragen.length - 1 ? handleNext : undefined}

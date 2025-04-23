@@ -1,31 +1,19 @@
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from "next/server"
+import { getUserFromToken } from "@/lib/getUserFromToken"
 
-export async function GET() {
-  const session = await getServerSession(authOptions)
 
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Nicht eingeloggt" }, { status: 401 })
-  }
+export async function GET(req: NextRequest) {
+  try {
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    include: {
-  progress: {
-    select: {
-      nextRound: true,
-      question: {
-        select: {
-          topic: true,
-          level: true
-        }
-      }
+    const user = await getUserFromToken(req)
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Benutzer nicht gefunden oder nicht authentifiziert" },
+        { status: 401 }
+      )
     }
-  }
-}
-  })
+
 
   if (!user) {
     return NextResponse.json({ error: "User nicht gefunden" }, { status: 404 })
@@ -96,4 +84,8 @@ export async function GET() {
     progressByTopic,
     overallProgress,
   })
+} catch (error) {
+  console.error("❌ Fehler:", error)
+  return NextResponse.json({ error: "Interner Serverfehler" }, { status: 500 })
+}
 }

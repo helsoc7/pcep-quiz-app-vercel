@@ -1,91 +1,105 @@
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { NextResponse, NextRequest } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getUserFromToken } from "@/lib/getUserFromToken"
 
-export async function GET() {
-  const session = await getServerSession(authOptions)
+export async function GET(req: NextRequest) {
+  try {
+    const user = await getUserFromToken(req)
 
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Nicht eingeloggt" }, { status: 401 })
-  }
-
-  // 1️⃣ User-ID laden (ohne Progress direkt)
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true },
-  })
-
-  if (!user) {
-    return NextResponse.json({ error: "User nicht gefunden" }, { status: 404 })
-  }
-
-  console.time("Progress laden")
-
-  // 2️⃣ Nur Progress laden (mit questionId + nextRound)
-  const progress = await prisma.userProgress.findMany({
-    where: { userId: user.id },
-    select: {
-      questionId: true,
-      nextRound: true,
-    },
-  })
-
-  console.timeEnd("Progress laden")
-
-  // 3️⃣ Wenn leer: Alle Fragen als Fallback
-  if (progress.length === 0) {
-    console.log("progress ist leer")
-    const allQuestions = await prisma.question.findMany({
-      take: 40,
-    })
-    return NextResponse.json(allQuestions)
-  }
-
-  // 4️⃣ Nur relevante Fragen laden
-  const questionIds = progress.map(p => p.questionId)
-
-  console.time("Fragen laden")
-  const questions = await prisma.question.findMany({
-    where: { id: { in: questionIds } },
-    select: {
-      id: true,
-      question: true,
-      answers: true,
-      correctIndex: true,
-      topic: true,
-      explanation: true,
-      explanationWrong: true,
-    },
-  })
-  console.timeEnd("Fragen laden")
-
-  // 5️⃣ Fragen map für schnellen Zugriff
-  const questionMap = new Map(questions.map(q => [q.id, q]))
-
-  // 6️⃣ Gewichtung: Fragen häufiger je nach nextRound
-  const weightedPool = progress.flatMap(p => {
-    const weight = Math.max(1, 5 - Math.min(p.nextRound ?? 0, 5))
-    const question = questionMap.get(p.questionId)
-    return question ? Array(weight).fill(question) : []
-  })
-
-  // 7️⃣ Shuffle & Auswahl
-  const shuffled = [...weightedPool].sort(() => Math.random() - 0.5)
-  const seen = new Set<string>()
-  const selected: typeof questions = []
-
-  for (const q of shuffled) {
-    if (!seen.has(q.id)) {
-      selected.push(q)
-      seen.add(q.id)
+    if (!user) {
+      return NextResponse.json({ error: "Nicht eingeloggt oder Token ungültig" }, { status: 401 })
     }
-    if (selected.length >= 40) break
+
+    const progress = user.progress
+
+    // Fallback: Wenn kein Fortschritt, einfach 40 beliebige Fragen holen
+    if (progress.length === 0) {
+      console.log("progress ist leer")
+      const allQuestions = await prisma.question.findMany({
+        take: 40,
+        select: {
+          id: true,
+          question: true,
+          answers: true,
+          correctIndexes: true,
+          topic: true,
+          explanation: true,
+          explanationWrong: true,
+        },
+      })
+
+      const parsed = allQuestions.map(q => ({
+        ...q,
+        answers: Array.isArray(q.answers) ? q.answers : JSON.parse(q.answers),
+        correctIndexes: Array.isArray(q.correctIndexes)
+          ? q.correctIndexes.map(Number)
+          : JSON.parse(q.correctIndexes ?? '[]').map(Number),
+        explanationWrong: Array.isArray(q.explanationWrong)
+          ? q.explanationWrong
+          : JSON.parse(q.explanationWrong),
+      }))
+
+      return NextResponse.json(parsed)
+    }
+
+    // IDs aus dem Progress holen
+    const questionIds = progress.map(p => p.questionId)
+
+    const questions = await prisma.question.findMany({
+      where: { id: { in: questionIds } },
+      select: {
+        id: true,
+        question: true,
+        answers: true,
+        correctIndexes: true, // 👈 Mehrfachantworten
+        topic: true,
+        explanation: true,
+        explanationWrong: true,
+      },
+    })
+
+    const parsedQuestions = questions.map(q => ({
+      ...q,
+      answers: Array.isArray(q.answers) ? q.answers : JSON.parse(q.answers),
+      correctIndexes: Array.isArray(q.correctIndexes)
+        ? q.correctIndexes.map(Number)
+        : JSON.parse(q.correctIndexes ?? '[]').map(Number),
+      explanationWrong: Array.isArray(q.explanationWrong)
+        ? q.explanationWrong
+        : JSON.parse(q.explanationWrong),
+    }))
+
+    // Map für schnellen Zugriff
+    const questionMap = new Map(parsedQuestions.map(q => [q.id, q]))
+
+    // Gewichtung nach nextRound
+    const weightedPool = progress.flatMap(p => {
+      const weight = Math.max(1, 5 - Math.min(p.nextRound ?? 0, 5))
+      const question = questionMap.get(p.questionId)
+      return question ? Array(weight).fill(question) : []
+    })
+
+    // Shuffle
+    const shuffled = [...weightedPool].sort(() => Math.random() - 0.5)
+    const seen = new Set<string>()
+    const selected: typeof parsedQuestions = []
+
+    for (const q of shuffled) {
+      if (!seen.has(q.id)) {
+        selected.push(q)
+        seen.add(q.id)
+      }
+      if (selected.length >= 40) break
+    }
+
+    // console.log("Progress Count:", progress.length)
+    // console.log("Pool Size:", weightedPool.length)
+    // console.log("Selected:", selected.length)
+
+    return NextResponse.json(selected)
+
+  } catch (error) {
+    console.error("❌ Fehler:", error)
+    return NextResponse.json({ error: "Interner Serverfehler" }, { status: 500 })
   }
-
-  console.log("Progress Count:", progress.length)
-  console.log("Pool Size:", weightedPool.length)
-  console.log("Selected:", selected.length)
-
-  return NextResponse.json(selected)
 }

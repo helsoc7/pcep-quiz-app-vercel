@@ -13,7 +13,7 @@ type QuestionProps = {
   id: string
   question: string
   answers: string[]
-  correctIndex: number
+  correctIndexes: number[]
   explanation: string
   explanationWrong: string[]
   onNext?: (wasCorrect: boolean) => void
@@ -29,7 +29,7 @@ export default function QuizFrage({
   id,
   question,
   answers,
-  correctIndex,
+  correctIndexes,
   explanation,
   explanationWrong,
   onNext,
@@ -40,30 +40,39 @@ export default function QuizFrage({
   correctCount,
   answeredCount
 }: QuestionProps) {
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
+  const [selectedIndexes, setSelectedIndexes] = useState<number[]>([])
   const [submitted, setSubmitted] = useState(false)
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
 
   useEffect(() => {
-    setSelectedIndex(null)
+    setSelectedIndexes([])
     setSubmitted(false)
+    setIsCorrect(null)
   }, [question])
 
-  const handleSubmit = async () => {
-    if (selectedIndex !== null) {
-      setSubmitted(true)
-    }
+  const toggleIndex = (index: number) => {
+    setSelectedIndexes((prev) =>
+      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
+    )
+  }
 
-    await fetch("/api/progress", {
+  const handleSubmit = async () => {
+    if (selectedIndexes.length === 0) return
+
+    const res = await fetch("/api/progress", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         questionId: id,
-        correct: selectedIndex === correctIndex,
+        selectedIndexes,
       }),
     })
-  }
 
-  const isCorrect = selectedIndex === correctIndex
+    const data = await res.json()
+
+    setIsCorrect(data.correct)  // ✅ Wert vom Backend
+    setSubmitted(true)
+  }
 
   return (
     <Card className="w-full max-w-2xl mx-auto space-y-6 p-6">
@@ -100,49 +109,34 @@ export default function QuizFrage({
         )}
 
         {/* Frage anzeigen */}
-        <ReactMarkdown
-          rehypePlugins={[rehypeHighlight]}
-          components={{
-            /* eslint-disable @typescript-eslint/no-unused-vars */
-            h1: ({ node, ...props }) => <h1 className="text-2xl font-bold" {...props} />,
-            h2: ({ node, ...props }) => <h2 className="text-xl font-semibold mt-4" {...props} />,
-            pre: ({ node, ...props }) => <pre className="bg-gray-100 p-4 rounded overflow-auto" {...props} />,
-            code: ({ node, ...props }) => <code className="text-sm" {...props} />,
-            p: ({ node, ...props }) => <p className="mb-2" {...props} />,
-          }}
-        >
+        <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
           {question}
         </ReactMarkdown>
 
         {/* Antworten */}
         <div className="space-y-2">
           {answers.map((answer, index) => {
-            const isSelected = selectedIndex === index
-            const isCorrectAnswer = index === correctIndex
+            const isSelected = selectedIndexes.includes(index)
+            const isCorrectAnswer = correctIndexes.includes(index)
             const isWrongAnswer = submitted && isSelected && !isCorrectAnswer
+            // console.log(isCorrectAnswer)
+            // console.log(correctIndexes)
 
             return (
               <Button
                 key={index}
                 variant={isSelected ? "outline" : "ghost"}
-                onClick={() => setSelectedIndex(index)}
+                onClick={() => toggleIndex(index)}
                 disabled={submitted}
                 className={`w-full justify-start whitespace-normal break-words text-left ${
-                  isCorrectAnswer && submitted
+                  submitted && isCorrectAnswer
                     ? "ring-2 ring-green-500"
-                    : isWrongAnswer
-                      ? "ring-2 ring-red-500"
-                      : ""
+                    : submitted && isWrongAnswer
+                    ? "ring-2 ring-red-500"
+                    : ""
                 }`}
               >
-                <ReactMarkdown
-                  rehypePlugins={[rehypeHighlight]}
-                  components={{
-                    p: ({ node, ...props }) => <p className="m-0" {...props} />,
-                    code: ({ node, ...props }) => <code className="bg-muted px-1 rounded text-sm" {...props} />,
-                    strong: ({ node, ...props }) => <strong className="font-semibold" {...props} />,
-                  }}
-                >
+                <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
                   {answer}
                 </ReactMarkdown>
               </Button>
@@ -154,36 +148,33 @@ export default function QuizFrage({
           <Button
             className="w-full mt-4"
             onClick={handleSubmit}
-            disabled={selectedIndex === null}
+            disabled={selectedIndexes.length === 0}
           >
-            Bestätigen
+            {correctIndexes.length > 1 ? "Bestätigen (Mehrfachantwort möglich)" : "Bestätigen"}
           </Button>
         )}
 
-        {submitted && onNext && (
+        {submitted && isCorrect !== null && onNext && (
           <>
             <Alert variant={isCorrect ? "default" : "destructive"}>
               <AlertTitle>{isCorrect ? "✅ Richtig!" : "❌ Falsch!"}</AlertTitle>
               <AlertDescription className="mt-2 text-sm space-y-2">
                 <p>{explanation}</p>
-                {!isCorrect && selectedIndex !== null && (
-  <div className="text-muted-foreground">
-    <p className="font-semibold mt-4">Warum war deine Antwort falsch?</p>
-    <p className="mt-1">
-      {
-        // Map selectedIndex to the correct position in explanationWrong
-        explanationWrong[
-          [...answers.keys()].filter((i) => i !== correctIndex).indexOf(selectedIndex)
-        ] ?? "Keine Erklärung verfügbar."
-      }
-    </p>
-  </div>
-)}
+                {!isCorrect && (
+                  <div className="text-muted-foreground">
+                    <p className="font-semibold mt-4">Warum war deine Antwort falsch?</p>
+                    {selectedIndexes.map((sel, idx) => (
+                      !correctIndexes.includes(sel) && explanationWrong[sel] ? (
+                        <p key={idx} className="mt-1">{explanationWrong[sel]}</p>
+                      ) : null
+                    ))}
+                  </div>
+                )}
               </AlertDescription>
             </Alert>
 
             <Button
-              onClick={() => onNext?.(isCorrect)} // ✅ übergibt nur ob korrekt
+              onClick={() => onNext?.(isCorrect)}
               className="mt-4 w-full"
               variant="default"
             >

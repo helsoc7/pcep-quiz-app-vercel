@@ -8,7 +8,7 @@ type Frage = {
   id: string
   question: string
   answers: string[]
-  correctIndex: number
+  correctIndexes: number[]   // <-- geändert
   explanation: string
   explanationWrong: string[]
 }
@@ -25,8 +25,16 @@ export default function QuizPage() {
     const fetchFragen = async () => {
       const res = await fetch(`/api/questions/${topic}`)
       const data = await res.json()
-      setFragen(data)
-      setAnswered(new Array(data.length).fill(false))
+      // Wenn correctIndexes als JSON-String kommt:
+      const parsedData = data.map((frage: Frage): Frage => ({
+        ...frage,
+        correctIndexes: Array.isArray(frage.correctIndexes)
+          ? frage.correctIndexes
+          : JSON.parse(frage.correctIndexes ?? '[]'),
+      }))
+      console.log(parsedData)
+      setFragen(parsedData)
+      setAnswered(new Array(parsedData.length).fill(false))
       setCorrectCount(0)
       setAnsweredCount(0)
     }
@@ -63,7 +71,7 @@ export default function QuizPage() {
         id={aktuelle.id}
         question={aktuelle.question}
         answers={aktuelle.answers}
-        correctIndex={aktuelle.correctIndex}
+        correctIndexes={aktuelle.correctIndexes}   
         explanation={aktuelle.explanation}
         explanationWrong={aktuelle.explanationWrong}
         onNext={aktuelleFrage < fragen.length - 1 ? handleNext : undefined}

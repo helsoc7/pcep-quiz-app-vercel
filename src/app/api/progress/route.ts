@@ -1,61 +1,78 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getUserFromToken } from "@/lib/getUserFromToken"
+import { areSetsEqual } from "@/lib/array"
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
+  try {
+    const user = await getUserFromToken(req)
 
-  if (!session || !session.user?.email) {
-    return NextResponse.json({ error: "Nicht eingeloggt" }, { status: 401 })
+    if (!user) {
+      return NextResponse.json({ error: "Nicht eingeloggt oder Token ungültig" }, { status: 401 })
+    }
+
+    const { questionId, selectedIndexes } = await req.json()
+    if (!questionId || !Array.isArray(selectedIndexes)) {
+      return NextResponse.json({ error: "Ungültige Anfrage" }, { status: 400 })
+    }
+
+    console.log("✅ Frage beantwortet:", { questionId, selectedIndexes })
+
+    // ➤ Frage + UserProgress in EINEM Query holen
+    const [question, existingProgress] = await Promise.all([
+      prisma.question.findUnique({
+        where: { id: questionId },
+        select: { correctIndexes: true },  // Nur das, was du brauchst
+      }),
+      prisma.userProgress.findUnique({
+        where: {
+          userId_questionId: {
+            userId: user.id, // ❗ Session-Optimierung (siehe unten)
+            questionId,
+          },
+        },
+      }),
+    ])
+
+    if (!question) {
+      return NextResponse.json({ error: "Frage nicht gefunden" }, { status: 404 })
+    }
+
+    const correctIndexes: number[] = Array.isArray(question.correctIndexes)
+      ? question.correctIndexes
+      : []
+
+    const isCorrect = areSetsEqual(selectedIndexes, correctIndexes)
+
+    console.log("🔍 Vergleich:", { correctIndexes, isCorrect })
+
+    // ➤ UserProgress aktualisieren/erstellen
+    if (existingProgress) {
+      await prisma.userProgress.update({
+        where: { id: existingProgress.id },
+        data: {
+          attempts: { increment: 1 },
+          wrongAnswers: isCorrect ? existingProgress.wrongAnswers : { increment: 1 },
+          lastSeen: new Date(),
+          nextRound: isCorrect ? (existingProgress.nextRound ?? 0) + 1 : 0,
+        },
+      })
+    } else {
+      await prisma.userProgress.create({
+        data: {
+          userId: user.id,
+          questionId,
+          attempts: 1,
+          wrongAnswers: isCorrect ? 0 : 1,
+          lastSeen: new Date(),
+          nextRound: isCorrect ? 1 : 0,
+        },
+      })
+    }
+
+    return NextResponse.json({ success: true, correct: isCorrect })
+  } catch (error) {
+    console.error("❌ Fehler im /api/progress:", error)
+    return NextResponse.json({ error: "Interner Serverfehler" }, { status: 500 })
   }
-
-  const { questionId, correct } = await req.json()
-  console.log("✅ Frage beantwortet:", { questionId, correct })
-
-  // User aus DB holen
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-  })
-
-  if (!user) {
-    return NextResponse.json({ error: "User nicht gefunden" }, { status: 404 })
-  }
-
-  const existing = await prisma.userProgress.findUnique({
-    where: {
-      userId_questionId: {
-        userId: user.id,
-        questionId,
-      },
-    },
-  })
-
-  if (existing) {
-    const nextRound = correct ? ((existing.nextRound ?? 0) + 1) : 0
-    console.log("⬆️ Update nextRound:", existing.nextRound, "→", nextRound)
-
-    await prisma.userProgress.update({
-      where: { id: existing.id },
-      data: {
-        attempts: existing.attempts + 1,
-        wrongAnswers: correct ? existing.wrongAnswers : existing.wrongAnswers + 1,
-        lastSeen: new Date(),
-        nextRound,
-      },
-    })
-  } else {
-    await prisma.userProgress.create({
-      data: {
-        userId: user.id,
-        questionId,
-        attempts: 1,
-        wrongAnswers: correct ? 0 : 1,
-        lastSeen: new Date(),
-        nextRound: correct ? 1 : 0,
-      },
-    })
-  }
-
-  return NextResponse.json({ success: true })
 }
