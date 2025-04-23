@@ -6,7 +6,7 @@ export async function GET() {
     await prisma.$connect()
     return NextResponse.json({ status: 'ok', message: 'Verbindung erfolgreich' })
   } catch (err) {
-    console.error('❌ DB-Verbindung fehlgeschlagen:', err)
+    console.error('DB-Verbindung fehlgeschlagen:', err)
     return NextResponse.json({ status: 'error', message: 'Verbindung fehlgeschlagen', error: String(err) }, { status: 500 })
   } finally {
     await prisma.$disconnect()

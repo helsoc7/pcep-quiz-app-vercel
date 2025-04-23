@@ -25,6 +25,7 @@ const PROGRESS_BG = "#DAD7CD"
 
 export default function DashboardPage() {
   const { data: session, status } = useSession()
+  console.log(session)
   const [summary, setSummary] = useState<{
     rounds: number[]
     progressByTopic: Record<string, number>

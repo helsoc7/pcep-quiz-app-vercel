@@ -16,18 +16,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Ungültige Anfrage" }, { status: 400 })
     }
 
-    console.log("✅ Frage beantwortet:", { questionId, selectedIndexes })
+    console.log("Frage beantwortet:", { questionId, selectedIndexes })
 
-    // ➤ Frage + UserProgress in EINEM Query holen
+    // Frage + UserProgress in EINEM Query holen
     const [question, existingProgress] = await Promise.all([
       prisma.question.findUnique({
         where: { id: questionId },
-        select: { correctIndexes: true },  // Nur das, was du brauchst
+        select: { correctIndexes: true },  
       }),
       prisma.userProgress.findUnique({
         where: {
           userId_questionId: {
-            userId: user.id, // ❗ Session-Optimierung (siehe unten)
+            userId: user.id,
             questionId,
           },
         },
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 
     const isCorrect = areSetsEqual(selectedIndexes, correctIndexes)
 
-    console.log("🔍 Vergleich:", { correctIndexes, isCorrect })
+    // console.log("Vergleich:", { correctIndexes, isCorrect })
 
     // ➤ UserProgress aktualisieren/erstellen
     if (existingProgress) {
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, correct: isCorrect })
   } catch (error) {
-    console.error("❌ Fehler im /api/progress:", error)
+    console.error("Fehler im /api/progress:", error)
     return NextResponse.json({ error: "Interner Serverfehler" }, { status: 500 })
   }
 }

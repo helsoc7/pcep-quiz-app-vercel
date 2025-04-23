@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
     overallProgress,
   })
 } catch (error) {
-  console.error("❌ Fehler:", error)
+  console.error("Fehler:", error)
   return NextResponse.json({ error: "Interner Serverfehler" }, { status: 500 })
 }
 }

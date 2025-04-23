@@ -1,0 +1,2 @@
+# This file marks the migration as applied
+migration_name = "0_init"

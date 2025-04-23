@@ -6,9 +6,9 @@ import type { AdapterUser } from "next-auth/adapters"
 import type { JWT } from "next-auth/jwt"
 import type { Session } from "next-auth"
 
-// Typ-Erweiterung (optional)
 interface ExtendedJWT extends JWT {
   id: string
+  role?: string
 }
 
 interface ExtendedSession extends Session {
@@ -17,7 +17,12 @@ interface ExtendedSession extends Session {
     email?: string | null
     name?: string | null
     image?: string | null
+    role?: string
   }
+}
+
+interface AdapterUserWithRole extends AdapterUser {
+  role: "USER" | "ADMIN"
 }
 
 export const authOptions: AuthOptions = {
@@ -35,26 +40,32 @@ export const authOptions: AuthOptions = {
     strategy: "jwt",
   },
   jwt: {
-    secret: process.env.JWT_SECRET,
+    secret: process.env.NEXTAUTH_SECRET,
   },
   callbacks: {
-    // 🔐 SignIn Callback (User wird erstellt oder aktualisiert)
     signIn: async ({ user }) => {
       if (!user.email) return false
-    
+
+      const adminEmails = [
+        "h.havelohh@gmail.com",
+        "joel.hilberg@tn.techstarter.de",  // TODO: Auslagern
+      ]
+
+      const role = adminEmails.includes(user.email) ? "ADMIN" : "USER"  
       const dbUser = await prisma.user.upsert({
         where: { email: user.email },
-        update: { name: user.name ?? undefined },
-        create: { email: user.email, name: user.name ?? "" },
+        update: { name: user.name ?? undefined, role },
+        create: { email: user.email, name: user.name ?? "", role },
       })
     
 
       user.id = dbUser.id
+      ;(user as AdapterUserWithRole).role = dbUser.role
     
       return true
     },
 
-    // 🪙 JWT Callback (fügt user.id ins Token ein)
+    //JWT Callback (fügt user.id ins Token ein)
     async jwt({
       token,
       user,
@@ -68,19 +79,23 @@ export const authOptions: AuthOptions = {
     }) {
       if (user && "id" in user) {
         token.id = user.id
-      }
-      return token
+        token.role = (user as AdapterUserWithRole).role 
+  }
+  return token
     },
 
-    // 📦 Session Callback (fügt user.id ins session.user ein)
+    // Session Callback (fügt user.id ins session.user ein)
     async session({ session, token }: { session: Session; token: JWT }) {
       const extendedSession = session as ExtendedSession
-      const extendedToken = token as ExtendedJWT
+  const extendedToken = token as ExtendedJWT & { role?: string }
 
-      if (extendedToken && extendedToken.id) {
-        extendedSession.user.id = extendedToken.id
-      }
-      return extendedSession
+  if (extendedToken.id) {
+    extendedSession.user.id = extendedToken.id
+  }
+  if (extendedToken.role) {
+    extendedSession.user.role = extendedToken.role
+  }
+  return extendedSession
     },
   },
 }

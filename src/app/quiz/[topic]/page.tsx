@@ -8,7 +8,7 @@ type Frage = {
   id: string
   question: string
   answers: string[]
-  correctIndexes: number[]   // <-- geändert
+  correctIndexes: number[]   
   explanation: string
   explanationWrong: string[]
 }

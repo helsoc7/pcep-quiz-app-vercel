@@ -7,11 +7,17 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
   id        String         @id @default(cuid())
   email     String         @unique
   name      String?
   createdAt DateTime       @default(now())
+  role      Role           @default(USER)
   progress  UserProgress[]
 }
 
@@ -48,6 +54,7 @@ model UserProgress {
   user         User      @relation(fields: [userId], references: [id])
 
   @@unique([userId, questionId])
+  @@unique([userId, questionId], map: "user_question_idx")
   @@index([questionId])
   @@index([userId])
 }

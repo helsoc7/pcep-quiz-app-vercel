@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
         id: true,
         question: true,
         answers: true,
-        correctIndexes: true, // 👈 Mehrfachantworten
+        correctIndexes: true, 
         topic: true,
         explanation: true,
         explanationWrong: true,
@@ -99,7 +99,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(selected)
 
   } catch (error) {
-    console.error("❌ Fehler:", error)
+    console.error("Fehler:", error)
     return NextResponse.json({ error: "Interner Serverfehler" }, { status: 500 })
   }
 }
