@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getUserFromToken } from "@/lib/getUserFromToken"
-import { areSetsEqual } from "@/lib/array"
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,42 +10,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Nicht eingeloggt oder Token ungültig" }, { status: 401 })
     }
 
-    const { questionId, selectedIndexes } = await req.json()
-    if (!questionId || !Array.isArray(selectedIndexes)) {
+    const { questionId, selectedIndexes, isCorrect } = await req.json()
+
+    if (!questionId || !Array.isArray(selectedIndexes) || typeof isCorrect !== "boolean") {
       return NextResponse.json({ error: "Ungültige Anfrage" }, { status: 400 })
     }
 
-    console.log("Frage beantwortet:", { questionId, selectedIndexes })
+    console.log("Fortschritt speichern:", { questionId, selectedIndexes, isCorrect })
 
-    // Frage + UserProgress in EINEM Query holen
-    const [question, existingProgress] = await Promise.all([
-      prisma.question.findUnique({
-        where: { id: questionId },
-        select: { correctIndexes: true },  
-      }),
-      prisma.userProgress.findUnique({
-        where: {
-          userId_questionId: {
-            userId: user.id,
-            questionId,
-          },
+    const existingProgress = await prisma.userProgress.findUnique({
+      where: {
+        userId_questionId: {
+          userId: user.id,
+          questionId,
         },
-      }),
-    ])
+      },
+    })
 
-    if (!question) {
-      return NextResponse.json({ error: "Frage nicht gefunden" }, { status: 404 })
-    }
-
-    const correctIndexes: number[] = Array.isArray(question.correctIndexes)
-      ? question.correctIndexes
-      : []
-
-    const isCorrect = areSetsEqual(selectedIndexes, correctIndexes)
-
-    // console.log("Vergleich:", { correctIndexes, isCorrect })
-
-    // ➤ UserProgress aktualisieren/erstellen
     if (existingProgress) {
       await prisma.userProgress.update({
         where: { id: existingProgress.id },
@@ -70,7 +50,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    return NextResponse.json({ success: true, correct: isCorrect })
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Fehler im /api/progress:", error)
     return NextResponse.json({ error: "Interner Serverfehler" }, { status: 500 })

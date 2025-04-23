@@ -8,6 +8,7 @@ import ReactMarkdown from "react-markdown"
 import rehypeHighlight from "rehype-highlight"
 import "highlight.js/styles/github.css"
 import { Progress } from "@/components/ui/progress"
+import { areSetsEqual } from "@/lib/array"
 
 type QuestionProps = {
   id: string
@@ -58,20 +59,23 @@ export default function QuizFrage({
 
   const handleSubmit = async () => {
     if (selectedIndexes.length === 0) return
-
-    const res = await fetch("/api/progress", {
+  
+    const localIsCorrect = areSetsEqual(selectedIndexes, correctIndexes)
+    setIsCorrect(localIsCorrect)
+    setSubmitted(true)
+  
+    // 2. Fortschritt async an Backend senden (non-blocking)
+    fetch("/api/progress", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         questionId: id,
         selectedIndexes,
+        isCorrect: localIsCorrect
       }),
+    }).catch((err) => {
+      console.error("Fehler beim Speichern des Fortschritts:", err)
     })
-
-    const data = await res.json()
-
-    setIsCorrect(data.correct)  // ✅ Wert vom Backend
-    setSubmitted(true)
   }
 
   return (
