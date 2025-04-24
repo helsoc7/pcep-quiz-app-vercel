@@ -17,7 +17,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import EditableFrage from './EditableQuestion' 
-import { SearchAndFilter } from './SearchAndFilter' 
+import { SearchAndFilter } from './SearchAndFilter'
+import AddQuestionButton from './AddQuestionButton'
 
 interface Frage {
   id: string
@@ -36,18 +37,44 @@ export default function AdminFragenPage() {
   const [selected, setSelected] = useState<Frage | null>(null)
   const [open, setOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   
   // Such- und Filteroptionen
   const [searchQuery, setSearchQuery] = useState('')
   const [topicFilter, setTopicFilter] = useState<string | null>(null)
   const [subtopicFilter, setSubtopicFilter] = useState<string | null>(null)
   
-  // Extrahiere unique topics und subtopics
+  // Extrahiere unique topics
   const topics = useMemo(() => 
     Array.from(new Set(fragen.map(f => f.topic).filter(Boolean))).sort() as string[], 
     [fragen]
   )
   
+  // Extrahiere subtopics, gruppiert nach Topics
+  const subtopicsGrouped = useMemo(() => {
+    const grouped: Record<string, string[]> = {}
+    
+    // Gruppiere alle Subtopics nach ihrem jeweiligen Topic
+    fragen.forEach(frage => {
+      if (frage.topic && frage.subtopic) {
+        if (!grouped[frage.topic]) {
+          grouped[frage.topic] = []
+        }
+        if (!grouped[frage.topic].includes(frage.subtopic)) {
+          grouped[frage.topic].push(frage.subtopic)
+        }
+      }
+    })
+    
+    // Sortiere jede Subtopic-Liste
+    Object.keys(grouped).forEach(topic => {
+      grouped[topic].sort()
+    })
+    
+    return grouped
+  }, [fragen])
+  
+  // Subtopics für die Filter-Auswahl
   const subtopics = useMemo(() => 
     Array.from(new Set(fragen
       .filter(f => !topicFilter || topicFilter === "all" || f.topic === topicFilter)
@@ -79,23 +106,27 @@ export default function AdminFragenPage() {
     })
   }, [fragen, searchQuery, topicFilter, subtopicFilter])
 
-  useEffect(() => {
-    const fetchFragen = async () => {
-      try {
-        const res = await fetch('/api/admin/questions')
-        const data = await res.json()
-        const parsedData = data.map((frage: Frage) => ({
-          ...frage,
-          answers: Array.isArray(frage.answers) ? frage.answers : JSON.parse(frage.answers ?? '[]'),
-          correctIndexes: Array.isArray(frage.correctIndexes) ? frage.correctIndexes : JSON.parse(frage.correctIndexes ?? '[]'),
-          explanationWrong: Array.isArray(frage.explanationWrong) ? frage.explanationWrong : JSON.parse(frage.explanationWrong ?? '[]'),
-        }))
-        setFragen(parsedData)
-      } catch (error) {
-        console.error('Fehler beim Laden der Fragen:', error)
-        alert('Fehler beim Laden der Fragen')
-      }
+  const fetchFragen = async () => {
+    setIsLoading(true)
+    try {
+      const res = await fetch('/api/admin/questions')
+      const data = await res.json()
+      const parsedData = data.map((frage: Frage) => ({
+        ...frage,
+        answers: Array.isArray(frage.answers) ? frage.answers : JSON.parse(frage.answers ?? '[]'),
+        correctIndexes: Array.isArray(frage.correctIndexes) ? frage.correctIndexes : JSON.parse(frage.correctIndexes ?? '[]'),
+        explanationWrong: Array.isArray(frage.explanationWrong) ? frage.explanationWrong : JSON.parse(frage.explanationWrong ?? '[]'),
+      }))
+      setFragen(parsedData)
+    } catch (error) {
+      console.error('Fehler beim Laden der Fragen:', error)
+      alert('Fehler beim Laden der Fragen')
+    } finally {
+      setIsLoading(false)
     }
+  }
+
+  useEffect(() => {
     fetchFragen()
   }, [])
 
@@ -113,6 +144,7 @@ export default function AdminFragenPage() {
         explanationWrong: updatedFrage.explanationWrong,
         topic: updatedFrage.topic || '',
         subtopic: updatedFrage.subtopic || '',
+        level: updatedFrage.level || 'medium',
       })
       
       // Explizit die Daten formatieren
@@ -160,9 +192,21 @@ export default function AdminFragenPage() {
     setSubtopicFilter(null)
   }
 
+  // Callback für wenn eine neue Frage hinzugefügt wurde
+  const handleQuestionAdded = () => {
+    fetchFragen() // Lade die Fragenliste neu
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-xl font-semibold mb-6">Fragen bearbeiten</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-xl font-semibold">Fragen bearbeiten</h1>
+        <AddQuestionButton 
+          onQuestionAdded={handleQuestionAdded} 
+          topics={topics}
+          subtopics={subtopicsGrouped}
+        />
+      </div>
       
       {/* Such- und Filterbereich als separate Komponente */}
       <SearchAndFilter
@@ -180,40 +224,50 @@ export default function AdminFragenPage() {
       />
       
       {/* Fragen-Tabelle */}
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Frage (Kurz)</TableHead>
-            <TableHead>Topic</TableHead>
-            <TableHead>Subtopic</TableHead>
-            <TableHead>Antworten</TableHead>
-            <TableHead>Aktion</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredFragen.length === 0 ? (
+      {isLoading ? (
+        <div className="py-8 text-center">Fragen werden geladen...</div>
+      ) : (
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                Keine Fragen gefunden, die den Filterkriterien entsprechen.
-              </TableCell>
+              <TableHead>Frage (Kurz)</TableHead>
+              <TableHead>Topic</TableHead>
+              <TableHead>Subtopic</TableHead>
+              <TableHead>Level</TableHead>
+              <TableHead>Antworten</TableHead>
+              <TableHead>Aktion</TableHead>
             </TableRow>
-          ) : (
-            filteredFragen.map((frage) => (
-              <TableRow key={frage.id}>
-                <TableCell className="max-w-xs">
-                  {frage.question.length > 50 ? frage.question.slice(0, 50) + "..." : frage.question}
-                </TableCell>
-                <TableCell>{frage.topic ?? "—"}</TableCell>
-                <TableCell>{frage.subtopic ?? "—"}</TableCell>
-                <TableCell>{frage.answers?.length || 0}</TableCell>
-                <TableCell>
-                  <Button onClick={() => openEditDialog(frage)}>Bearbeiten</Button>
+          </TableHeader>
+          <TableBody>
+            {filteredFragen.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  Keine Fragen gefunden, die den Filterkriterien entsprechen.
                 </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+            ) : (
+              filteredFragen.map((frage) => (
+                <TableRow key={frage.id}>
+                  <TableCell className="max-w-xs">
+                    {frage.question.length > 50 ? frage.question.slice(0, 50) + "..." : frage.question}
+                  </TableCell>
+                  <TableCell>{frage.topic ?? "—"}</TableCell>
+                  <TableCell>{frage.subtopic ?? "—"}</TableCell>
+                  <TableCell>
+                    {frage.level === 'easy' ? 'Leicht' : 
+                     frage.level === 'medium' ? 'Mittel' : 
+                     frage.level === 'hard' ? 'Schwer' : '—'}
+                  </TableCell>
+                  <TableCell>{frage.answers?.length || 0}</TableCell>
+                  <TableCell>
+                    <Button onClick={() => openEditDialog(frage)}>Bearbeiten</Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      )}
 
       {/* Dialog mit EditableFrage-Komponente */}
       <Dialog open={open} onOpenChange={(isOpen) => {
@@ -228,6 +282,8 @@ export default function AdminFragenPage() {
             <EditableFrage
               frage={selected}
               onSave={handleSave}
+              allTopics={topics}
+              allSubtopics={subtopicsGrouped}
             />
           )}
         </DialogContent>

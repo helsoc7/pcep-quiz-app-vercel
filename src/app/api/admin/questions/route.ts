@@ -18,6 +18,53 @@ export async function GET(req: NextRequest) {
   }
 }
 
+export async function POST(req: NextRequest) {
+  try {
+    const user = await getUserFromToken(req)
+    if (!user || user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+    }
+
+    const data = await req.json()
+    const { question, answers, correctIndexes, explanation, explanationWrong, topic, subtopic, level } = data
+
+    // Validierung der Eingabedaten
+    if (!question || !Array.isArray(answers) || !Array.isArray(correctIndexes) || !explanation) {
+      return NextResponse.json({ error: "Unvollständige Daten" }, { status: 400 })
+    }
+
+    // Mindestens eine korrekte Antwort muss ausgewählt sein
+    if (correctIndexes.length === 0) {
+      return NextResponse.json(
+        { error: "Mindestens eine korrekte Antwort muss ausgewählt sein" },
+        { status: 400 }
+      )
+    }
+
+    // Neue Frage erstellen
+    const newQuestion = await prisma.question.create({
+      data: {
+        question,
+        answers: JSON.stringify(answers),
+        correctIndexes,
+        explanation,
+        explanationWrong: JSON.stringify(explanationWrong || []),
+        topic: topic || "",
+        subtopic: subtopic || "",
+        level: level || "medium",
+      },
+    })
+
+    return NextResponse.json(newQuestion, { status: 201 })
+  } catch (error) {
+    console.error("Fehler beim Erstellen der Frage:", error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Interner Serverfehler" },
+      { status: 500 }
+    )
+  }
+}
+
 export async function PUT(req: NextRequest) {
   try {
     const user = await getUserFromToken(req)
@@ -26,7 +73,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const data = await req.json()
-    const { id, question, answers, correctIndexes, explanation, explanationWrong, topic, level } = data
+    const { id, question, answers, correctIndexes, explanation, explanationWrong, topic, subtopic, level } = data
 
     if (!id || !question || !Array.isArray(answers) || !Array.isArray(correctIndexes)) {
       return NextResponse.json({ error: "Ungültige Daten" }, { status: 400 })
@@ -41,6 +88,7 @@ export async function PUT(req: NextRequest) {
         explanation,
         explanationWrong: JSON.stringify(explanationWrong),
         topic,
+        subtopic, 
         level,
       },
     })

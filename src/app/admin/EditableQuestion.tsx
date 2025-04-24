@@ -6,6 +6,20 @@ import { Textarea } from "@/components/ui/textarea"
 import ReactMarkdown from "react-markdown"
 import rehypeHighlight from "rehype-highlight"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { InfoIcon } from "lucide-react"
 
 type Frage = {
   id: string
@@ -14,17 +28,34 @@ type Frage = {
   correctIndexes: number[]
   explanation: string
   explanationWrong: string[]
+  topic?: string
+  subtopic?: string
+  level?: string
 }
 
 export default function EditableFrage({
   frage,
   onSave,
+  allTopics = [], // Alle verfügbaren Topics
+  allSubtopics = {}, // Alle verfügbaren Subtopics, gruppiert nach Topic
 }: {
   frage: Frage
   onSave: (f: Frage) => void
+  allTopics?: string[]
+  allSubtopics?: Record<string, string[]>
 }) {
   const [editedFrage, setEditedFrage] = useState<Frage>(frage)
   const [openIndexes, setOpenIndexes] = useState<number[]>([])
+  const [filteredSubtopics, setFilteredSubtopics] = useState<string[]>([])
+  const [customTopic, setCustomTopic] = useState<string>(frage.topic || "")
+  const [customSubtopic, setCustomSubtopic] = useState<string>(frage.subtopic || "")
+  
+  // Schwierigkeitsgrade
+  const difficultyLevels = [
+    { value: 'easy', label: 'Leicht' },
+    { value: 'medium', label: 'Mittel' },
+    { value: 'hard', label: 'Schwer' }
+  ]
   
   // Zusätzliche State-Variable, um die Bearbeitung der falschen Erklärungen zu verwalten
   // Wir behalten alle Erklärungen, auch für richtige Antworten
@@ -58,7 +89,14 @@ export default function EditableFrage({
     
     setExplanations(initialExplanations)
     setEditedFrage(frage)
-  }, [frage])
+    setCustomTopic(frage.topic || "")
+    setCustomSubtopic(frage.subtopic || "")
+    
+    // Setze die Subtopics basierend auf dem aktuellen Topic
+    if (frage.topic && allSubtopics[frage.topic]) {
+      setFilteredSubtopics(allSubtopics[frage.topic] || [])
+    }
+  }, [frage, allSubtopics])
 
   const handleAnswerChange = (index: number, value: string) => {
     const newAnswers = [...editedFrage.answers]
@@ -141,6 +179,30 @@ export default function EditableFrage({
     )
   }
 
+  const handleTopicChange = (value: string) => {
+    // Topic aktualisieren
+    setCustomTopic(value)
+    setEditedFrage({ 
+      ...editedFrage,
+      topic: value,
+      // Wenn das Topic geändert wird, setzen wir das Subtopic zurück, da es möglicherweise nicht mehr passt
+      subtopic: "" 
+    })
+    setCustomSubtopic("")
+    
+    // Subtopics filtern basierend auf dem ausgewählten Topic
+    setFilteredSubtopics(allSubtopics[value] || [])
+  }
+
+  const handleSubtopicChange = (value: string) => {
+    setCustomSubtopic(value)
+    setEditedFrage({ ...editedFrage, subtopic: value })
+  }
+
+  const handleLevelChange = (value: string) => {
+    setEditedFrage({ ...editedFrage, level: value })
+  }
+
   const handleSave = () => {
     // Konvertiere die Erklärungen in ein Array für die Datenstruktur
     // Dabei müssen wir die richtige Reihenfolge der falschen Antworten beibehalten
@@ -159,7 +221,11 @@ export default function EditableFrage({
     
     const finalFrage = {
       ...editedFrage,
-      explanationWrong: explanationWrongArray
+      explanationWrong: explanationWrongArray,
+      // Benutze die Werte aus den Input-Feldern, falls kein vorhandener Wert ausgewählt wurde
+      topic: editedFrage.topic || customTopic || "",
+      subtopic: editedFrage.subtopic || customSubtopic || "",
+      level: editedFrage.level || "medium"
     }
     
     onSave(finalFrage)
@@ -176,6 +242,128 @@ export default function EditableFrage({
             onChange={(e) => setEditedFrage({ ...editedFrage, question: e.target.value })}
             className="min-h-[80px]"
           />
+        </div>
+
+        {/* Topic, Subtopic und Level Auswahl */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Topic Auswahl */}
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Thema 
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <InfoIcon className="h-4 w-4 ml-1 inline-block text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">Wähle ein existierendes Thema oder gib ein neues ein</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </label>
+            {allTopics.length > 0 ? (
+              <div className="space-y-2">
+                <Select 
+                  value={editedFrage.topic || undefined}
+                  onValueChange={handleTopicChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Thema auswählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allTopics.map((topic) => (
+                      <SelectItem key={topic} value={topic}>
+                        {topic}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!editedFrage.topic && (
+                  <Input
+                    value={customTopic}
+                    onChange={(e) => handleTopicChange(e.target.value)}
+                    placeholder="Oder neues Thema eingeben..."
+                  />
+                )}
+              </div>
+            ) : (
+              <Input
+                value={customTopic}
+                onChange={(e) => handleTopicChange(e.target.value)}
+                placeholder="z.B. Grundlagen, Funktionen, etc."
+              />
+            )}
+          </div>
+          
+          {/* Subtopic Auswahl */}
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Unterthema
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <InfoIcon className="h-4 w-4 ml-1 inline-block text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">Wähle ein existierendes Unterthema oder gib ein neues ein</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </label>
+            {filteredSubtopics.length > 0 && (editedFrage.topic || customTopic) ? (
+              <div className="space-y-2">
+                <Select 
+                  value={editedFrage.subtopic || undefined}
+                  onValueChange={handleSubtopicChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Unterthema auswählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredSubtopics.map((subtopic) => (
+                      <SelectItem key={subtopic} value={subtopic}>
+                        {subtopic}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!editedFrage.subtopic && (
+                  <Input
+                    value={customSubtopic}
+                    onChange={(e) => handleSubtopicChange(e.target.value)}
+                    placeholder="Oder neues Unterthema eingeben..."
+                  />
+                )}
+              </div>
+            ) : (
+              <Input
+                value={customSubtopic}
+                onChange={(e) => handleSubtopicChange(e.target.value)}
+                placeholder="z.B. Datentypen, Module, etc."
+                disabled={!(editedFrage.topic || customTopic)}
+              />
+            )}
+          </div>
+          
+          {/* Schwierigkeitsgrad */}
+          <div>
+            <label className="block text-sm font-medium mb-1">Schwierigkeitsgrad</label>
+            <Select 
+              value={editedFrage.level || "medium"}
+              onValueChange={handleLevelChange}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Schwierigkeitsgrad wählen" />
+              </SelectTrigger>
+              <SelectContent>
+                {difficultyLevels.map((level) => (
+                  <SelectItem key={level.value} value={level.value}>
+                    {level.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Antworten */}
@@ -265,7 +453,9 @@ export default function EditableFrage({
           <p>Debugging (kann später entfernt werden):</p>
           <p>Antworten: [{editedFrage.answers.length}]</p>
           <p>Richtige Indizes: [{editedFrage.correctIndexes.join(", ")}]</p>
-          <p>Alle Erklärungen: {JSON.stringify(explanations)}</p>
+          <p>Topic: {editedFrage.topic || customTopic || "—"}</p>
+          <p>Subtopic: {editedFrage.subtopic || customSubtopic || "—"}</p>
+          <p>Level: {editedFrage.level || "medium"}</p>
         </div>
 
         {/* Speichern */}

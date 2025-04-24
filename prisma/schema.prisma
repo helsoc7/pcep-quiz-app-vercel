@@ -7,11 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  USER
-  ADMIN
-}
-
 model User {
   id        String         @id @default(cuid())
   email     String         @unique
@@ -25,7 +20,6 @@ model Question {
   id               String         @id @default(cuid())
   question         String
   answers          String
-  correctIndex     Int
   topic            String
   subtopic         String
   level            Difficulty
@@ -57,6 +51,11 @@ model UserProgress {
   @@unique([userId, questionId], map: "user_question_idx")
   @@index([questionId])
   @@index([userId])
+}
+
+enum Role {
+  USER
+  ADMIN
 }
 
 enum Difficulty {
