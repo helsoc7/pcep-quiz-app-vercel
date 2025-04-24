@@ -10,8 +10,6 @@ import rehypeHighlight from "rehype-highlight"
 import "highlight.js/styles/github.css"
 import { Progress } from "@/components/ui/progress"
 import { areSetsEqual } from "@/lib/array"
-import rehypeRaw from "rehype-raw"
-import remarkBreaks from "remark-breaks"
 
 type QuestionProps = {
   id: string
