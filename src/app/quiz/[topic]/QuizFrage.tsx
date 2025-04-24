@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import ReactMarkdown from "react-markdown"
+import Markdown from 'react-markdown'
 import rehypeHighlight from "rehype-highlight"
 import "highlight.js/styles/github.css"
 import { Progress } from "@/components/ui/progress"
 import { areSetsEqual } from "@/lib/array"
+import rehypeRaw from "rehype-raw"
+import remarkBreaks from "remark-breaks"
 
 type QuestionProps = {
   id: string
@@ -45,6 +48,9 @@ export default function QuizFrage({
   const [submitted, setSubmitted] = useState(false)
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
 
+  // Maximale Anzahl der erlaubten Antworten (basierend auf der Anzahl der korrekten Antworten)
+  const maxSelections = correctIndexes.length
+
   useEffect(() => {
     setSelectedIndexes([])
     setSubmitted(false)
@@ -52,9 +58,25 @@ export default function QuizFrage({
   }, [question])
 
   const toggleIndex = (index: number) => {
-    setSelectedIndexes((prev) =>
-      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
-    )
+    setSelectedIndexes((prev) => {
+      // Wenn nur eine Antwort erlaubt ist (Single-Choice)
+      if (maxSelections === 1) {
+        return [index] // Ersetze die vorherige Auswahl
+      }
+      
+      // Wenn mehrere Antworten erlaubt sind (Multiple-Choice)
+      if (prev.includes(index)) {
+        // Abwählen einer bereits gewählten Antwort
+        return prev.filter((i) => i !== index)
+      } else {
+        // Wenn wir das Maximum erreicht haben, kann nichts mehr hinzugefügt werden
+        if (prev.length >= maxSelections) {
+          return prev
+        }
+        // Hinzufügen einer neuen Auswahl
+        return [...prev, index]
+      }
+    })
   }
 
   const handleSubmit = async () => {
@@ -76,6 +98,13 @@ export default function QuizFrage({
     }).catch((err) => {
       console.error("Fehler beim Speichern des Fortschritts:", err)
     })
+  }
+
+  // Markdown Rendering Optionen
+  const markdownOptions = {
+    rehypePlugins: [rehypeHighlight]
+    // rehypePlugins: [rehypeHighlight, rehypeRaw],
+    // remarkPlugins: [remarkBreaks]
   }
 
   return (
@@ -113,9 +142,18 @@ export default function QuizFrage({
         )}
 
         {/* Frage anzeigen */}
-        <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
-          {question}
-        </ReactMarkdown>
+        <div className="prose max-w-none">
+          <ReactMarkdown {...markdownOptions}>
+            {question}
+          </ReactMarkdown>
+        </div>
+
+        {/* Anzeige der maximal möglichen Antworten */}
+        <p className="text-sm text-muted-foreground">
+          {maxSelections === 1 
+            ? "Wähle eine Antwort aus" 
+            : `Wähle maximal ${maxSelections} Antworten aus (${selectedIndexes.length}/${maxSelections} gewählt)`}
+        </p>
 
         {/* Antworten */}
         <div className="space-y-2">
@@ -123,16 +161,15 @@ export default function QuizFrage({
             const isSelected = selectedIndexes.includes(index)
             const isCorrectAnswer = correctIndexes.includes(index)
             const isWrongAnswer = submitted && isSelected && !isCorrectAnswer
-            // console.log(isCorrectAnswer)
-            // console.log(correctIndexes)
+            const isDisabled = submitted || (!isSelected && selectedIndexes.length >= maxSelections)
 
             return (
               <Button
                 key={index}
                 variant={isSelected ? "outline" : "ghost"}
                 onClick={() => toggleIndex(index)}
-                disabled={submitted}
-                className={`w-full justify-start whitespace-normal break-words text-left ${
+                disabled={isDisabled}
+                className={`w-full justify-start whitespace-normal text-left ${
                   submitted && isCorrectAnswer
                     ? "ring-2 ring-green-500"
                     : submitted && isWrongAnswer
@@ -140,9 +177,11 @@ export default function QuizFrage({
                     : ""
                 }`}
               >
-                <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
-                  {answer}
-                </ReactMarkdown>
+                <div className="w-full prose prose-sm max-w-none">
+                  <Markdown>
+                    {answer}
+                  </Markdown>
+                </div>
               </Button>
             )
           })}
@@ -154,7 +193,7 @@ export default function QuizFrage({
             onClick={handleSubmit}
             disabled={selectedIndexes.length === 0}
           >
-            {correctIndexes.length > 1 ? "Bestätigen (Mehrfachantwort möglich)" : "Bestätigen"}
+            {correctIndexes.length > 1 ? "Bestätigen" : "Bestätigen"}
           </Button>
         )}
 
@@ -163,13 +202,21 @@ export default function QuizFrage({
             <Alert variant={isCorrect ? "default" : "destructive"}>
               <AlertTitle>{isCorrect ? "✅ Richtig!" : "❌ Falsch!"}</AlertTitle>
               <AlertDescription className="mt-2 text-sm space-y-2">
-                <p>{explanation}</p>
+                <div className="prose prose-sm max-w-none">
+                  <ReactMarkdown {...markdownOptions}>
+                    {explanation}
+                  </ReactMarkdown>
+                </div>
                 {!isCorrect && (
                   <div className="text-muted-foreground">
                     <p className="font-semibold mt-4">Warum war deine Antwort falsch?</p>
                     {selectedIndexes.map((sel, idx) => (
                       !correctIndexes.includes(sel) && explanationWrong[sel] ? (
-                        <p key={idx} className="mt-1">{explanationWrong[sel]}</p>
+                        <div key={idx} className="mt-1 prose prose-sm max-w-none">
+                          <ReactMarkdown {...markdownOptions}>
+                            {explanationWrong[sel]}
+                          </ReactMarkdown>
+                        </div>
                       ) : null
                     ))}
                   </div>
