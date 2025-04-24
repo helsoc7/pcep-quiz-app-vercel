@@ -5,6 +5,7 @@ import { getUserFromToken } from "@/lib/getUserFromToken"
 export async function GET(req: NextRequest) {
   try {
     const user = await getUserFromToken(req)
+    const lang = req.nextUrl.searchParams.get('lang') || 'de'
 
     if (!user) {
       return NextResponse.json({ error: "Nicht eingeloggt oder Token ungültig" }, { status: 401 })
@@ -26,6 +27,9 @@ export async function GET(req: NextRequest) {
           explanation: true,
           explanationWrong: true,
         },
+        where: {
+          language: lang
+        }
       })
 
       const parsed = allQuestions.map(q => ({
@@ -46,7 +50,8 @@ export async function GET(req: NextRequest) {
     const questionIds = progress.map(p => p.questionId)
 
     const questions = await prisma.question.findMany({
-      where: { id: { in: questionIds } },
+      where: { id: { in: questionIds },
+              language: lang },
       select: {
         id: true,
         question: true,

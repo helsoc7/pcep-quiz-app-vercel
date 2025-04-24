@@ -3,22 +3,26 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import QuizFrage from './QuizFrage'
+import { Switch } from "@/components/ui/switch"
+import LanguageSwitcherDialog from '../../../components/LanguageSwitcherDialog'
 
 type Frage = {
   id: string
   question: string
   answers: string[]
-  correctIndexes: number[]   
+  correctIndexes: number[]
   explanation: string
   explanationWrong: string[]
+  language: string
 }
 
 type QuizProgress = {
-  currentQuestion: number;
-  answered: boolean[];
-  correctCount: number;
-  answeredCount: number;
-  topic: string;
+  currentQuestion: number
+  answered: boolean[]
+  correctCount: number
+  answeredCount: number
+  topic: string
+  language: string
 }
 
 export default function QuizPage() {
@@ -29,30 +33,36 @@ export default function QuizPage() {
   const [correctCount, setCorrectCount] = useState(0)
   const [answeredCount, setAnsweredCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  const [language, setLanguage] = useState<'de' | 'en'>('de')
+  const [showLanguageDialog, setShowLanguageDialog] = useState(false)
 
-  // Funktion zum Speichern des Fortschritts im SessionStorage
-  // Mit useCallback, damit die Funktion nicht bei jedem Rendering neu erstellt wird
+  // Sprache aus SessionStorage laden
+  useEffect(() => {
+    const savedLang = sessionStorage.getItem('quiz-selected-language') as 'de' | 'en' | null
+    if (savedLang && savedLang !== language) {
+      setLanguage(savedLang)
+    }
+  }, [language])
+
   const saveProgress = useCallback((currentQuestion: number, answeredState: boolean[], correct: number, answeredTotal: number) => {
     const progressData: QuizProgress = {
       currentQuestion,
       answered: answeredState,
       correctCount: correct,
       answeredCount: answeredTotal,
-      topic: topic as string
+      topic,
+      language,
     }
-    
     try {
-      sessionStorage.setItem(`quiz-progress-${topic}`, JSON.stringify(progressData))
+      sessionStorage.setItem(`quiz-progress-${topic}-${language}`, JSON.stringify(progressData))
     } catch (error) {
       console.error("Fehler beim Speichern des Fortschritts:", error)
     }
-  }, [topic])
+  }, [topic, language])
 
-  // Funktion zum Laden des Fortschritts aus dem SessionStorage
-  // Mit useCallback, damit die Funktion nicht bei jedem Rendering neu erstellt wird
   const loadProgress = useCallback((): QuizProgress | null => {
     try {
-      const savedProgress = sessionStorage.getItem(`quiz-progress-${topic}`)
+      const savedProgress = sessionStorage.getItem(`quiz-progress-${topic}-${language}`)
       if (savedProgress) {
         return JSON.parse(savedProgress) as QuizProgress
       }
@@ -60,37 +70,30 @@ export default function QuizPage() {
       console.error("Fehler beim Laden des Fortschritts:", error)
     }
     return null
-  }, [topic])
+  }, [topic, language])
 
   useEffect(() => {
     const fetchFragen = async () => {
       setIsLoading(true)
       try {
-        const res = await fetch(`/api/questions/${topic}`)
+        const res = await fetch(`/api/questions/${topic}?lang=${language}`)
         const data = await res.json()
-        
-        // Wenn correctIndexes als JSON-String kommt:
         const parsedData = data.map((frage: Frage): Frage => ({
           ...frage,
           correctIndexes: Array.isArray(frage.correctIndexes)
             ? frage.correctIndexes
             : JSON.parse(frage.correctIndexes ?? '[]'),
         }))
-        
         setFragen(parsedData)
-        
-        // Versuche, gespeicherten Fortschritt zu laden
+
         const savedProgress = loadProgress()
-        
-        if (savedProgress && savedProgress.topic === topic && savedProgress.answered.length === parsedData.length) {
-          // Fortschritt wiederherstellen
+        if (savedProgress && savedProgress.topic === topic && savedProgress.language === language && savedProgress.answered.length === parsedData.length) {
           setAktuelleFrage(savedProgress.currentQuestion)
           setAnswered(savedProgress.answered)
           setCorrectCount(savedProgress.correctCount)
           setAnsweredCount(savedProgress.answeredCount)
           console.log("Fortschritt wiederhergestellt:", savedProgress)
         } else {
-          // Neuen Fortschritt initialisieren
           setAktuelleFrage(0)
           setAnswered(new Array(parsedData.length).fill(false))
           setCorrectCount(0)
@@ -102,16 +105,23 @@ export default function QuizPage() {
         setIsLoading(false)
       }
     }
-    
-    fetchFragen()
-  }, [topic, loadProgress]) // loadProgress als Abhängigkeit hinzugefügt
 
-  // Speichere Fortschritt bei Änderungen
+    fetchFragen()
+  }, [topic, language, loadProgress])
+
   useEffect(() => {
     if (fragen.length > 0 && !isLoading) {
       saveProgress(aktuelleFrage, answered, correctCount, answeredCount)
     }
-  }, [aktuelleFrage, answered, correctCount, answeredCount, fragen.length, isLoading, saveProgress]) // saveProgress als Abhängigkeit hinzugefügt
+  }, [aktuelleFrage, answered, correctCount, answeredCount, fragen.length, isLoading, saveProgress])
+
+  const handleLanguageChange = () => {
+    const newLang = language === 'de' ? 'en' : 'de'
+    // sessionStorage.removeItem(`quiz-progress-${topic}-${language}`)
+    sessionStorage.setItem('quiz-selected-language', newLang)
+    setLanguage(newLang)
+    setShowLanguageDialog(false)
+  }
 
   if (isLoading) return <p className="p-4">Fragen werden geladen...</p>
   if (fragen.length === 0) return <p className="p-4">Keine Fragen für dieses Thema gefunden.</p>
@@ -124,65 +134,42 @@ export default function QuizPage() {
       updated[aktuelleFrage] = true
       return updated
     })
-
     setAnsweredCount((prev) => prev + 1)
-
-    if (wasCorrect) {
-      setCorrectCount((prev) => prev + 1)
-    }
-
+    if (wasCorrect) setCorrectCount((prev) => prev + 1)
     setAktuelleFrage((prev) => Math.min(prev + 1, fragen.length - 1))
   }
 
-  const handleJumpTo = (index: number) => {
-    setAktuelleFrage(index)
-  }
-
-  const handleReset = () => {
-    // Fortschritt zurücksetzen
-    const newAnswered = new Array(fragen.length).fill(false)
-    setAktuelleFrage(0)
-    setAnswered(newAnswered)
-    setCorrectCount(0)
-    setAnsweredCount(0)
-    
-    // Auch im SessionStorage zurücksetzen
-    saveProgress(0, newAnswered, 0, 0)
-  }
-
-  const quizCompleted = answered.every(a => a)
-
   return (
     <div className="p-6">
-      {quizCompleted && (
-        <div className="max-w-2xl mx-auto mb-6">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-            <h2 className="text-lg font-bold text-green-800">Quiz abgeschlossen!</h2>
-            <p className="text-green-700">
-              Du hast {correctCount} von {answeredCount} Fragen richtig beantwortet 
-              ({Math.round((correctCount / answeredCount) * 100)}%).
-            </p>
+      <div className="flex justify-center items-center mb-6">
+        <div className="flex items-center space-x-4 bg-muted rounded-lg px-4 py-2 shadow-sm">
+          <span className="text-sm font-medium text-gray-700">Sprache:</span>
+          <span className="text-sm font-semibold">{language.toUpperCase()}</span>
+          <div className="flex items-center space-x-2">
+            <span className="text-xs">DE</span>
+            <Switch checked={language === 'en'} onCheckedChange={() => setShowLanguageDialog(true)} />
+            <span className="text-xs">EN</span>
           </div>
-          <button 
-            onClick={handleReset}
-            className="bg-primary text-white px-4 py-2 rounded hover:bg-opacity-90 transition-colors mb-4"
-          >
-            Quiz zurücksetzen
-          </button>
         </div>
-      )}
-      
+      </div>
+
+      <LanguageSwitcherDialog
+        open={showLanguageDialog}
+        onClose={() => setShowLanguageDialog(false)}
+        onConfirm={handleLanguageChange}
+      />
+
       <QuizFrage
         id={aktuelle.id}
         question={aktuelle.question}
         answers={aktuelle.answers}
-        correctIndexes={aktuelle.correctIndexes}   
+        correctIndexes={aktuelle.correctIndexes}
         explanation={aktuelle.explanation}
         explanationWrong={aktuelle.explanationWrong}
         onNext={aktuelleFrage < fragen.length - 1 ? handleNext : undefined}
         currentIndex={aktuelleFrage}
         total={fragen.length}
-        onJumpTo={handleJumpTo}
+        onJumpTo={setAktuelleFrage}
         answered={answered}
         correctCount={correctCount}
         answeredCount={answeredCount}

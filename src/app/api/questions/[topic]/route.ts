@@ -2,16 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from "@/lib/prisma"
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   context: any
 )
 {
   try {
   const { topic } = context.params
+  const lang = req.nextUrl.searchParams.get('lang') || 'de'
 
   const questions = await prisma.question.findMany({
-    where: { topic },
+    where: { 
+      topic,
+      language: lang,
+    },
   })
 
   return NextResponse.json(

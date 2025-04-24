@@ -108,26 +108,48 @@ export default function QuizFrage({
   return (
     <Card className="w-full max-w-2xl mx-auto space-y-6 p-6">
       <CardContent className="space-y-6">
-        {/* Fortschrittsleiste */}
-        {typeof currentIndex === "number" && typeof total === "number" && (
-          <div className="flex justify-center gap-0.5 mb-4">
-            {Array.from({ length: total }).map((_, index) => {
-              const isActive = index === currentIndex
-              const isDone = answered?.[index]
+        {/* Scrollbare Fortschrittsleiste mit Zahlen */}
+{typeof currentIndex === "number" && typeof total === "number" && (
+  <div className="relative mb-4">
+    <div className="flex justify-start items-center overflow-x-auto py-2 px-4 max-w-full">
+      <div 
+        className="flex gap-2 transition-transform"
+        style={{
+          transform: `translateX(${Math.max(0, Math.min(total - 10, currentIndex - 5)) * -40}px)`,
+        }}
+      >
+        {Array.from({ length: total }).map((_, index) => {
+          const isActive = index === currentIndex
+          const isDone = answered?.[index]
 
-              return (
-                <button
-                  key={index}
-                  className={`w-6 h-6 rounded-full border transition hover:scale-105
-                    ${isActive ? "bg-primary" :
-                      isDone ? "bg-gray-300" : "bg-muted"}`}
-                  onClick={() => onJumpTo?.(index)}
-                  title={`Frage ${index + 1}`}
-                />
-              )
-            })}
-          </div>
-        )}
+          return (
+            <button
+              key={index}
+              className={`flex items-center justify-center w-8 h-8 rounded-full border transition hover:scale-110 flex-shrink-0
+                ${isActive 
+                  ? "bg-primary text-white border-primary font-medium" 
+                  : isDone 
+                    ? "bg-gray-400 text-white border-gray-500" 
+                    : "bg-muted text-gray-500 border-gray-200"}`}
+              onClick={() => onJumpTo?.(index)}
+              title={`Frage ${index + 1}`}
+            >
+              {index + 1}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+    
+    {/* Visueller Hinweis für Scroll */}
+    {currentIndex < total - 10 && (
+      <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none"></div>
+    )}
+    {currentIndex > 5 && (
+      <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent pointer-events-none"></div>
+    )}
+  </div>
+)}
 
         {/* Richtige Antworten Skala */}
         {typeof correctCount === "number" && typeof answeredCount === "number" && answeredCount > 0 && (

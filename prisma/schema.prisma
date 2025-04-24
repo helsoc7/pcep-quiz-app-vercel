@@ -27,10 +27,12 @@ model Question {
   explanationWrong String
   createdAt        DateTime       @default(now())
   correctIndexes   Int[]
+  language         String?        @default("de")
   progress         UserProgress[]
 
   @@index([level])
   @@index([topic])
+  @@index([language])
 }
 
 model UserProgress {

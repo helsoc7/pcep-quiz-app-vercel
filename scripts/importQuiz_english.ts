@@ -9,8 +9,11 @@ const prisma = new PrismaClient();
 const logFile = './import.log';
 fs.writeFileSync(logFile, ''); // Log zurücksetzen
 
-const file = '/Users/helenhaveloh/workspace/projects/quiz-app/questions/01_intermediate.md'; // dein Dateipfad
+const file = '/Users/helenhaveloh/workspace/projects/quiz-app/questions/english/01_easy_en.md'; // dein Dateipfad
 const markdown = fs.readFileSync(file, 'utf8');
+
+// Spracheinstellung für diesen Import
+const language = "en"; // Hier auf "en" setzen für Englisch
 
 function log(message: string) {
   const timestamp = new Date().toISOString();
@@ -34,7 +37,7 @@ function parseQuestionBlocks(md: string): string[] {
 // Fragezeile extrahieren
 function extractQuestionText(content: string): string {
   // Frage extrahieren
-  const match = content.match(/### Frage \d+:\s*([\s\S]*?)(?=\n- \[)/);
+  const match = content.match(/### Question \d+:\s*([\s\S]*?)(?=\n- \[)/);
   if (!match) return 'Unbekannte Frage';
 
   let questionText = match[1].trim();
@@ -101,10 +104,11 @@ async function main() {
           level: toEnumLevel(data.level),
           explanation: data.explanation,
           explanationWrong: JSON.stringify(data.explanationWrong),
+          language, // Hier wird das Sprachfeld gesetzt
         },
       });
 
-      log(`✅ Frage importiert: ${question}`);
+      log(`✅ Frage importiert (${language}): ${question}`);
     } catch (err: any) {
       log(`❌ Fehler beim Importieren:\n${err.message}`);
     }
