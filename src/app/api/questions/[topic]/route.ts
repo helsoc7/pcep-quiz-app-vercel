@@ -19,7 +19,6 @@ export async function GET(
       id: q.id,
       question: q.question,
       answers: JSON.parse(q.answers),
-      correctIndex: q.correctIndex,
       correctIndexes: Array.isArray(q.correctIndexes)
         ? q.correctIndexes.map(Number)
         : JSON.parse(q.correctIndexes ?? '[]').map(Number),

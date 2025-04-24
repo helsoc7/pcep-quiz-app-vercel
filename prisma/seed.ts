@@ -20,7 +20,7 @@ async function main() {
     data: {
       question: "What is the result of 3 / 2 in Python 3?",
       answers: JSON.stringify(["1", "1.5", "2", "2.5"]),
-      correctIndex: 1,
+      correctIndexes: [1],
       topic: "Python Basics",
       subtopic: "Division",
       level: "easy",

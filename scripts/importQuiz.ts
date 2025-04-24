@@ -54,24 +54,26 @@ function extractQuestionText(content: string): string {
 }
 
 // Antwortoptionen extrahieren
-function extractAnswersAndCorrectIndex(content: string): { answers: string[]; correctIndex: number } {
+function extractAnswersAndCorrectIndex(content: string): { answers: string[]; correctIndexes: number[] } {
   const regex = /- \[( |x)] (.+)/g;
   const answers: string[] = [];
-  let correctIndex = -1;
+  const correctIndexes: number[] = []; // Array statt einzelner Wert
   let match;
   let index = 0;
 
   while ((match = regex.exec(content)) !== null) {
     answers.push(match[2].trim());
-    if (match[1] === 'x') correctIndex = index;
+    if (match[1] === 'x') {
+      correctIndexes.push(index); // Füge Index zum Array hinzu
+    }
     index++;
   }
 
-  if (correctIndex === -1) {
+  if (correctIndexes.length === 0) {
     throw new Error('Keine korrekte Antwort gefunden.');
   }
 
-  return { answers, correctIndex };
+  return { answers, correctIndexes }; // Gib Array zurück
 }
 
 function toEnumLevel(level: string): Difficulty {
@@ -87,13 +89,13 @@ async function main() {
       const { data, content } = matter(block);
 
       const question = extractQuestionText(content);
-      const { answers, correctIndex } = extractAnswersAndCorrectIndex(content);
+      const { answers, correctIndexes } = extractAnswersAndCorrectIndex(content);
 
       await prisma.question.create({
         data: {
           question,
           answers: JSON.stringify(answers),
-          correctIndex,
+          correctIndexes, 
           topic: data.topic,
           subtopic: data.subtopic,
           level: toEnumLevel(data.level),

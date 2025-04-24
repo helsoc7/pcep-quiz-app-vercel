@@ -30,6 +30,18 @@ type AddQuestionButtonProps = {
   subtopics: Record<string, string[]> // Verfügbare Subtopics, gruppiert nach Topic
 }
 
+type Frage = {
+  id: string
+  question: string
+  answers: string[]
+  correctIndexes: number[]
+  explanation: string
+  explanationWrong: string[]
+  topic?: string
+  subtopic?: string
+  level?: string
+}
+
 export default function AddQuestionButton({ 
   onQuestionAdded, 
   topics, 
@@ -38,11 +50,12 @@ export default function AddQuestionButton({
   const [open, setOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
-  const handleCreateQuestion = async (newQuestion: any) => {
+  const handleCreateQuestion = async (newQuestion: Frage) => {
     setIsSaving(true)
     
     try {
       // Entferne die leere ID, da sie vom Server generiert wird
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id, ...questionData } = newQuestion
       
       // Validierung
