@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 const logFile = './import.log';
 fs.writeFileSync(logFile, ''); // Log zurücksetzen
 
-const file = '/Users/helenhaveloh/workspace/projects/quiz-app/questions/english/01_easy_en.md'; // dein Dateipfad
+const file = '/Users/helenhaveloh/workspace/projects/quiz-app/questions/english/02_test_en.md'; // dein Dateipfad
 const markdown = fs.readFileSync(file, 'utf8');
 
 // Spracheinstellung für diesen Import
