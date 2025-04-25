@@ -59,7 +59,12 @@ export default function QuizFrage({
     setSelectedIndexes((prev) => {
       // Wenn nur eine Antwort erlaubt ist (Single-Choice)
       if (maxSelections === 1) {
-        return [index] // Ersetze die vorherige Auswahl
+        // Wenn die Antwort bereits ausgewählt ist, abwählen (leeres Array zurückgeben)
+        if (prev.includes(index)) {
+          return []
+        }
+        // Sonst die neue Antwort auswählen
+        return [index]
       }
       
       // Wenn mehrere Antworten erlaubt sind (Multiple-Choice)
@@ -181,7 +186,7 @@ export default function QuizFrage({
             const isSelected = selectedIndexes.includes(index)
             const isCorrectAnswer = correctIndexes.includes(index)
             const isWrongAnswer = submitted && isSelected && !isCorrectAnswer
-            const isDisabled = submitted || (!isSelected && selectedIndexes.length >= maxSelections)
+            const isDisabled = submitted || (!isSelected && selectedIndexes.length >= maxSelections && maxSelections > 1)
 
             return (
               <Button
