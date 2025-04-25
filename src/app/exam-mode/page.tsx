@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import QuizFrage from '../quiz/[topic]/QuizFrage'
 import { motion } from "framer-motion"
-import { CheckCircle } from "lucide-react"
+import { CheckCircle, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 
@@ -102,7 +102,16 @@ export default function ExamPage() {
   }
   
   const isFinished = answeredCount === fragen.length || manuallyFinished
-  if (fragen.length === 0) return <p className="p-4">Fragen werden geladen...</p>
+  if (fragen.length === 0) return (
+    <div className="flex flex-col items-center justify-center h-[50vh] p-8">
+      <div className="bg-card rounded-lg border border-border shadow-sm p-8 flex flex-col items-center space-y-4">
+        <Loader2 className="h-10 w-10 text-primary animate-spin" />
+        <p className="text-muted-foreground font-medium">
+          {language === 'de' ? 'Fragen werden geladen...' : 'Loading questions...'}
+        </p>
+      </div>
+    </div>
+  )
 
   return (
     <div className="p-6 max-w-4xl mx-auto">

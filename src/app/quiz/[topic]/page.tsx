@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import QuizFrage from './QuizFrage'
 import { Switch } from "@/components/ui/switch"
 import LanguageSwitcherDialog from '../../../components/LanguageSwitcherDialog'
+import { Loader2 } from "lucide-react"
 
 type Frage = {
   id: string
@@ -123,8 +124,26 @@ export default function QuizPage() {
     setShowLanguageDialog(false)
   }
 
-  if (isLoading) return <p className="p-4">Fragen werden geladen...</p>
-  if (fragen.length === 0) return <p className="p-4">Keine Fragen für dieses Thema gefunden.</p>
+  if (isLoading) return (
+    <div className="flex flex-col items-center justify-center h-[50vh] p-8">
+      <div className="bg-card rounded-lg border border-border shadow-sm p-8 flex flex-col items-center space-y-4">
+        <Loader2 className="h-10 w-10 text-primary animate-spin" />
+        <p className="text-muted-foreground font-medium">
+          {language === 'de' ? 'Fragen werden geladen...' : 'Loading questions...'}
+        </p>
+      </div>
+    </div>
+  )
+  
+  if (fragen.length === 0) return (
+    <div className="flex flex-col items-center justify-center h-[50vh] p-8">
+      <div className="bg-card rounded-lg border border-border shadow-sm p-8 flex flex-col items-center space-y-4">
+        <p className="text-muted-foreground font-medium">
+          {language === 'de' ? 'Keine Fragen für dieses Thema gefunden.' : 'No questions found for this topic.'}
+        </p>
+      </div>
+    </div>
+  )
 
   const aktuelle = fragen[aktuelleFrage]
 
@@ -140,7 +159,7 @@ export default function QuizPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 max-w-4xl mx-auto">
       <div className="flex justify-center items-center mb-6">
         <div className="flex items-center space-x-4 bg-muted rounded-lg px-4 py-2 shadow-sm">
           <span className="text-sm font-medium text-gray-700">Sprache:</span>
@@ -159,21 +178,23 @@ export default function QuizPage() {
         onConfirm={handleLanguageChange}
       />
 
-      <QuizFrage
-        id={aktuelle.id}
-        question={aktuelle.question}
-        answers={aktuelle.answers}
-        correctIndexes={aktuelle.correctIndexes}
-        explanation={aktuelle.explanation}
-        explanationWrong={aktuelle.explanationWrong}
-        onNext={aktuelleFrage < fragen.length - 1 ? handleNext : undefined}
-        currentIndex={aktuelleFrage}
-        total={fragen.length}
-        onJumpTo={setAktuelleFrage}
-        answered={answered}
-        correctCount={correctCount}
-        answeredCount={answeredCount}
-      />
+      <div className="bg-card rounded-lg border border-border shadow-sm p-6">
+        <QuizFrage
+          id={aktuelle.id}
+          question={aktuelle.question}
+          answers={aktuelle.answers}
+          correctIndexes={aktuelle.correctIndexes}
+          explanation={aktuelle.explanation}
+          explanationWrong={aktuelle.explanationWrong}
+          onNext={aktuelleFrage < fragen.length - 1 ? handleNext : undefined}
+          currentIndex={aktuelleFrage}
+          total={fragen.length}
+          onJumpTo={setAktuelleFrage}
+          answered={answered}
+          correctCount={correctCount}
+          answeredCount={answeredCount}
+        />
+      </div>
     </div>
   )
 }
