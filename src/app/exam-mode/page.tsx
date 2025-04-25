@@ -1,11 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import QuizFrage from '../quiz/[topic]/QuizFrage'
 import { motion } from "framer-motion"
-import { CheckCircle, Loader2 } from "lucide-react"
+import { CheckCircle, Loader2, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 type Frage = {
   id: string
@@ -25,8 +31,8 @@ export default function ExamPage() {
   const [correctCount, setCorrectCount] = useState(0)
   const [answeredCount, setAnsweredCount] = useState(0)
   const [language, setLanguage] = useState<'de' | 'en'>('de')
-  // const [showLanguageDialog, setShowLanguageDialog] = useState(false)
   const [manuallyFinished, setManuallyFinished] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   // Sprache beim Laden aus dem sessionStorage holen
   useEffect(() => {
@@ -36,9 +42,10 @@ export default function ExamPage() {
     }
   }, [])
 
-  // Fragen laden
-  useEffect(() => {
-    const fetchFragen = async () => {
+  // Fragen laden Funktion
+  const fetchFragen = useCallback(async () => {
+    setIsLoading(true)
+    try {
       const res = await fetch(`/api/exam/questions?lang=${language}`)
       const raw: Frage[] = await res.json()
 
@@ -66,10 +73,17 @@ export default function ExamPage() {
       setAnsweredCount(0)
       setAktuelleFrage(0)
       setManuallyFinished(false)
+    } catch (error) {
+      console.error("Fehler beim Laden der Fragen:", error)
+    } finally {
+      setIsLoading(false)
     }
-
-    fetchFragen()
   }, [language])
+
+  // Fragen initial laden
+  useEffect(() => {
+    fetchFragen()
+  }, [fetchFragen])
 
   const aktuelle = fragen[aktuelleFrage]
 
@@ -88,21 +102,20 @@ export default function ExamPage() {
   const handleJumpTo = (index: number) => {
     setAktuelleFrage(index)
   }
-
-  // const handleLanguageConfirm = () => {
-  //   const newLang = language === 'de' ? 'en' : 'de'
-  //   sessionStorage.setItem('exam-selected-language', newLang)
-  //   setLanguage(newLang)
-  //   setShowLanguageDialog(false)
-  // }
   
   const handleCancel = () => {
-    // Immer den manuellen Beendigungsmodus aktivieren, wenn auf Beenden geklickt wird
+    // Manuellen Beendigungsmodus aktivieren
     setManuallyFinished(true)
   }
   
+  const handleTryAgain = () => {
+    // Neue Fragen laden, anstatt nur die Zustände zurückzusetzen
+    fetchFragen()
+  }
+  
   const isFinished = answeredCount === fragen.length || manuallyFinished
-  if (fragen.length === 0) return (
+  
+  if (isLoading) return (
     <div className="flex flex-col items-center justify-center h-[50vh] p-8">
       <div className="bg-card rounded-lg border border-border shadow-sm p-8 flex flex-col items-center space-y-4">
         <Loader2 className="h-10 w-10 text-primary animate-spin" />
@@ -144,78 +157,124 @@ export default function ExamPage() {
           {language === 'de' ? 'Prüfung abgeben' : 'Submit exam'}
         </Button>
       </div>
-
-      {/* Dialog wird nicht mehr benötigt, da wir direkte Buttons verwenden */}
       
       {isFinished ? (
-        <div className="bg-white rounded-lg shadow-md p-8 mx-auto max-w-lg">
+        <div className="bg-card rounded-lg border border-border shadow-sm p-8 mx-auto max-w-lg">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-center space-y-6"
           >
-          <CheckCircle className="mx-auto text-green-500 w-16 h-16" />
-          <h2 className="text-2xl font-bold">
-            {manuallyFinished 
-              ? (language === 'de' ? 'Prüfung beendet!' : 'Exam ended!') 
-              : (language === 'de' ? 'Fertig! 🎉' : 'Finished! 🎉')}
-          </h2>
-          <p className="text-gray-600">
-            {manuallyFinished 
-              ? (language === 'de' 
-                  ? `Du hast ${answeredCount} von ${fragen.length} Fragen beantwortet.` 
-                  : `You answered ${answeredCount} out of ${fragen.length} questions.`)
-              : (language === 'de'
-                  ? `Du hast alle ${fragen.length} Fragen beantwortet.`
-                  : `You answered all ${fragen.length} questions.`)}
-          </p>
-          <div className="space-y-2 max-w-sm mx-auto">
-            <p>
-              <span className="font-medium">{language === 'de' ? 'Richtig:' : 'Correct:'}</span> {correctCount}
+            <div className="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center">
+              <CheckCircle className="text-emerald-500 w-10 h-10" />
+            </div>
+            <h2 className="text-2xl font-bold text-foreground">
+              {manuallyFinished 
+                ? (language === 'de' ? 'Prüfung beendet!' : 'Exam ended!') 
+                : (language === 'de' ? 'Fertig! 🎉' : 'Finished! 🎉')}
+            </h2>
+            <p className="text-muted-foreground">
+              {manuallyFinished 
+                ? (language === 'de' 
+                    ? `Du hast ${answeredCount} von ${fragen.length} Fragen beantwortet.` 
+                    : `You answered ${answeredCount} out of ${fragen.length} questions.`)
+                : (language === 'de'
+                    ? `Du hast alle ${fragen.length} Fragen beantwortet.`
+                    : `You answered all ${fragen.length} questions.`)}
             </p>
-            <p>
-              <span className="font-medium">{language === 'de' ? 'Falsch:' : 'Wrong:'}</span> {answeredCount - correctCount}
-            </p>
-            <p>
-              <span className="font-medium">{language === 'de' ? 'Trefferquote:' : 'Success rate:'}</span>{" "}
-              {answeredCount > 0 ? ((correctCount / answeredCount) * 100).toFixed(1) : '0.0'}%
-            </p>
-            <Progress value={answeredCount > 0 ? (correctCount / answeredCount) * 100 : 0} />
-          </div>
-          <div className="flex space-x-4 justify-center">
-            <Button onClick={() => {
-              setAnswered(new Array(fragen.length).fill(false))
-              setCorrectCount(0)
-              setAnsweredCount(0)
-              setAktuelleFrage(0)
-              setManuallyFinished(false)
-            }}>
-              {language === 'de' ? 'Erneut versuchen' : 'Try again'}
-            </Button>
-            <Button variant="outline" onClick={() => window.location.href = '/'}>
-              {language === 'de' ? 'Zur Startseite' : 'Home'}
-            </Button>
-          </div>
+            <div className="space-y-3 max-w-sm mx-auto">
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-foreground">{language === 'de' ? 'Richtig:' : 'Correct:'}</span>
+                <span className="font-medium">{correctCount}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-foreground">{language === 'de' ? 'Falsch:' : 'Wrong:'}</span>
+                <span className="font-medium">{answeredCount - correctCount}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <span className="font-medium text-foreground">{language === 'de' ? 'Erfolgsquote:' : 'Success rate:'}</span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex cursor-help ml-1">
+                          <Info className="h-4 w-4 text-muted-foreground" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs text-sm">
+                          {language === 'de' 
+                            ? 'Die Erfolgsquote zeigt den Prozentsatz der korrekt beantworteten Fragen im Verhältnis zu allen beantworteten Fragen.' 
+                            : 'Success rate shows the percentage of correctly answered questions relative to all questions you answered.'}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <span className="font-medium">{answeredCount > 0 ? ((correctCount / answeredCount) * 100).toFixed(1) : '0.0'}%</span>
+              </div>
+              <div className="flex justify-between items-center mt-1">
+                <div className="flex items-center">
+                  <span className="font-medium text-foreground">{language === 'de' ? 'Gesamtfortschritt:' : 'Overall progress:'}</span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex cursor-help ml-1">
+                          <Info className="h-4 w-4 text-muted-foreground" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs text-sm">
+                          {language === 'de' 
+                            ? 'Der Gesamtfortschritt zeigt den Prozentsatz der korrekt beantworteten Fragen im Verhältnis zu allen 40 Prüfungsfragen.' 
+                            : 'Overall progress shows the percentage of correctly answered questions relative to all 40 exam questions.'}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <span className="font-medium">{((correctCount / fragen.length) * 100).toFixed(1)}%</span>
+              </div>
+              <Progress 
+                value={(correctCount / fragen.length) * 100} 
+                className="h-2 mt-2"
+              />
+            </div>
+            <div className="flex space-x-4 justify-center pt-2">
+              <Button 
+                variant="default"
+                className="bg-black text-white hover:bg-gray-800"
+                onClick={handleTryAgain}
+              >
+                {language === 'de' ? 'Neu starten' : 'Try again'}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => window.location.href = '/'}
+              >
+                {language === 'de' ? 'Zur Startseite' : 'Home'}
+              </Button>
+            </div>
           </motion.div>
         </div>
       ) : (
         /* Quiz */
         <div className="bg-card rounded-lg border border-border shadow-sm p-6">
           <QuizFrage
-          id={aktuelle.id}
-          question={aktuelle.question}
-          answers={aktuelle.answers}
-          correctIndexes={aktuelle.correctIndexes}
-          explanation={aktuelle.explanation}
-          explanationWrong={aktuelle.explanationWrong}
-          onNext={aktuelleFrage < fragen.length - 1 ? handleNext : undefined}
-          currentIndex={aktuelleFrage}
-          total={fragen.length}
-          onJumpTo={handleJumpTo}
-          answered={answered}
-          correctCount={correctCount}
-          answeredCount={answeredCount}
-        />
+            id={aktuelle.id}
+            question={aktuelle.question}
+            answers={aktuelle.answers}
+            correctIndexes={aktuelle.correctIndexes}
+            explanation={aktuelle.explanation}
+            explanationWrong={aktuelle.explanationWrong}
+            onNext={aktuelleFrage < fragen.length - 1 ? handleNext : undefined}
+            currentIndex={aktuelleFrage}
+            total={fragen.length}
+            onJumpTo={handleJumpTo}
+            answered={answered}
+            correctCount={correctCount}
+            answeredCount={answeredCount}
+          />
         </div>
       )}
     </div>
