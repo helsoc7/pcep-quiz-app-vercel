@@ -13,45 +13,8 @@ export async function GET(req: NextRequest) {
 
     const progress = user.progress
 
-    // Fallback: Wenn kein Fortschritt, einfach 40 beliebige Fragen holen
-    if (progress.length === 0) {
-      console.log("progress ist leer")
-      const allQuestions = await prisma.question.findMany({
-        take: 40,
-        select: {
-          id: true,
-          question: true,
-          answers: true,
-          correctIndexes: true,
-          topic: true,
-          explanation: true,
-          explanationWrong: true,
-        },
-        where: {
-          language: lang
-        }
-      })
-
-      const parsed = allQuestions.map(q => ({
-        ...q,
-        answers: Array.isArray(q.answers) ? q.answers : JSON.parse(q.answers),
-        correctIndexes: Array.isArray(q.correctIndexes)
-          ? q.correctIndexes.map(Number)
-          : JSON.parse(q.correctIndexes ?? '[]').map(Number),
-        explanationWrong: Array.isArray(q.explanationWrong)
-          ? q.explanationWrong
-          : JSON.parse(q.explanationWrong),
-      }))
-
-      return NextResponse.json(parsed)
-    }
-
-    // IDs aus dem Progress holen
-    const questionIds = progress.map(p => p.questionId)
-
-    const questions = await prisma.question.findMany({
-      where: { id: { in: questionIds },
-              language: lang },
+    // Alle verfügbaren Fragen für die gewählte Sprache laden
+    const allQuestions = await prisma.question.findMany({
       select: {
         id: true,
         question: true,
@@ -61,9 +24,13 @@ export async function GET(req: NextRequest) {
         explanation: true,
         explanationWrong: true,
       },
+      where: {
+        language: lang
+      }
     })
 
-    const parsedQuestions = questions.map(q => ({
+    // Fragen parsen
+    const parsedQuestions = allQuestions.map(q => ({
       ...q,
       answers: Array.isArray(q.answers) ? q.answers : JSON.parse(q.answers),
       correctIndexes: Array.isArray(q.correctIndexes)
@@ -74,14 +41,24 @@ export async function GET(req: NextRequest) {
         : JSON.parse(q.explanationWrong),
     }))
 
-    // Map für schnellen Zugriff
-    const questionMap = new Map(parsedQuestions.map(q => [q.id, q]))
+    // Fallback: Wenn kein Fortschritt, einfach 40 beliebige Fragen holen
+    if (progress.length === 0) {
+      console.log("progress ist leer")
+      const shuffled = [...parsedQuestions].sort(() => Math.random() - 0.5)
+      return NextResponse.json(shuffled.slice(0, 40))
+    }
 
-    // Gewichtung nach nextRound
-    const weightedPool = progress.flatMap(p => {
-      const weight = Math.max(1, 5 - Math.min(p.nextRound ?? 0, 5))
-      const question = questionMap.get(p.questionId)
-      return question ? Array(weight).fill(question) : []
+    // Map für den User-Progress erstellen
+    const progressMap = new Map(progress.map(p => [p.questionId, p]))
+    
+    // Gewichteter Pool mit allen Fragen erstellen (inkl. unbesuchter Fragen mit nextRound=0)
+    const weightedPool = parsedQuestions.flatMap(q => {
+      // Entweder existierenden Progress verwenden oder virtuellen mit nextRound=0
+      const userProgress = progressMap.get(q.id)
+      const nextRound = userProgress ? (userProgress.nextRound ?? 0) : 0
+      const weight = Math.max(1, 5 - Math.min(nextRound, 5))
+      
+      return Array(weight).fill(q)
     })
 
     // Shuffle
@@ -97,6 +74,7 @@ export async function GET(req: NextRequest) {
       if (selected.length >= 40) break
     }
 
+    // console.log("Questions Count:", parsedQuestions.length)
     // console.log("Progress Count:", progress.length)
     // console.log("Pool Size:", weightedPool.length)
     // console.log("Selected:", selected.length)
