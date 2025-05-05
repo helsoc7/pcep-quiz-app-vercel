@@ -1,6 +1,6 @@
 "use client"
 
-import { Eye, Paperclip, FileText, HelpCircle, Shield } from "lucide-react"
+import { Eye, Paperclip, FileText, HelpCircle, Shield, Shuffle } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import AuthControl from "@/components/AuthControl"
@@ -13,6 +13,10 @@ export default function Header() {
   return (
     <header className="w-full flex justify-center py-6">
       <nav className="flex space-x-8 text-sm text-gray-500 items-center">
+      <Link href="/shuffle-mode" className="flex items-center gap-2 hover:text-black transition">
+          <Shuffle className="h-4 w-4" />
+          Shuffle Modus
+        </Link>
         <Link href="/exam-mode" className="flex items-center gap-2 hover:text-black transition">
           <Eye className="h-4 w-4" />
           Prüfungsmodus
