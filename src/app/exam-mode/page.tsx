@@ -51,7 +51,8 @@ export default function ExamPage() {
       const raw: Frage[] = await res.json()
 
       const expanded = raw.flatMap((frage) => {
-        const weight = Math.max(1, 5 - (frage.nextRound ?? 0))
+        // Reduzierte Gewichtung: Statt 1-5, verwenden wir 1-2
+        const weight = Math.max(1, 3 - Math.min(frage.nextRound ?? 0, 2))
 
         const parsedFrage: Frage = {
           ...frage,

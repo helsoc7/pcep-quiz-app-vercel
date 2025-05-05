@@ -51,12 +51,14 @@ export async function GET(req: NextRequest) {
     // Map für den User-Progress erstellen
     const progressMap = new Map(progress.map(p => [p.questionId, p]))
     
-    // Gewichteter Pool mit allen Fragen erstellen (inkl. unbesuchter Fragen mit nextRound=0)
+    // Gewichteter Pool mit reduzierter Gewichtung
     const weightedPool = parsedQuestions.flatMap(q => {
       // Entweder existierenden Progress verwenden oder virtuellen mit nextRound=0
       const userProgress = progressMap.get(q.id)
       const nextRound = userProgress ? (userProgress.nextRound ?? 0) : 0
-      const weight = Math.max(1, 5 - Math.min(nextRound, 5))
+      
+      // Reduzierte Gewichtung: nur 1-2 statt 1-5
+      const weight = Math.max(1, 3 - Math.min(nextRound, 2))
       
       return Array(weight).fill(q)
     })
