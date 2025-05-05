@@ -33,6 +33,7 @@ export default function DashboardPage() {
     rounds: number[]
     progressByTopic: Record<string, number>
     overallProgress: number
+    debug?: any
   } | null>(null)
 
   const [showConsentDialog, setShowConsentDialog] = useState(false)
@@ -46,6 +47,7 @@ export default function DashboardPage() {
         if (res.ok) {
           const data = await res.json()
           setSummary(data)
+          console.log("Progress Summary Debug:", data.debug)
         }
       } catch (err) {
         console.error("Fehler beim Laden des Fortschritts:", err)
@@ -148,6 +150,20 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Debug Info für Fortschritt */}
+      {summary?.debug && (
+        <Card className="bg-gray-50">
+          <CardHeader>
+            <CardTitle className="text-sm">Debug Information</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <pre className="text-xs overflow-x-auto">
+              {JSON.stringify(summary.debug, null, 2)}
+            </pre>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Karteikasten Fortschritt */}
       {roundData.length > 0 && (

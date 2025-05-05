@@ -47,6 +47,7 @@ export default function ExamPage() {
     setIsLoading(true)
     try {
       const res = await fetch(`/api/exam/questions?lang=${language}`)
+      if (!res.ok) throw new Error('API call failed')
       const raw: Frage[] = await res.json()
 
       const expanded = raw.flatMap((frage) => {
@@ -148,14 +149,16 @@ export default function ExamPage() {
           </div>
         </div>
         
-        <Button 
-          variant="outline" 
-          size="sm"
-          className="text-primary hover:bg-primary/10 hover:text-primary border-primary/20"
-          onClick={handleCancel}
-        >
-          {language === 'de' ? 'Prüfung abgeben' : 'Submit exam'}
-        </Button>
+        {!isFinished && (
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="text-primary hover:bg-primary/10 hover:text-primary border-primary/20"
+            onClick={handleCancel}
+          >
+            {language === 'de' ? 'Prüfung abgeben' : 'Submit exam'}
+          </Button>
+        )}
       </div>
       
       {isFinished ? (

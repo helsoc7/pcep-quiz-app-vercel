@@ -28,13 +28,18 @@ export async function POST(req: NextRequest) {
     })
 
     if (existingProgress) {
+      // Wenn die Antwort richtig ist, erhöhe nextRound
+      const newNextRound = isCorrect ? 
+        Math.min((existingProgress.nextRound ?? 0) + 1, 5) :  // Cap at 5
+        0
+      
       await prisma.userProgress.update({
         where: { id: existingProgress.id },
         data: {
           attempts: { increment: 1 },
           wrongAnswers: isCorrect ? existingProgress.wrongAnswers : { increment: 1 },
           lastSeen: new Date(),
-          nextRound: isCorrect ? (existingProgress.nextRound ?? 0) + 1 : 0,
+          nextRound: newNextRound,
         },
       })
     } else {
