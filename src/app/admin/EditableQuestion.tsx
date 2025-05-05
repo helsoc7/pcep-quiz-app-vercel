@@ -374,22 +374,28 @@ export default function EditableFrage({
             return (
               <div key={index} className="space-y-1 mb-3 border-b pb-3">
                 <div className="flex items-start space-x-2">
-                  <Checkbox
-                    checked={isCorrect}
-                    onCheckedChange={() => toggleCorrectIndex(index)}
-                    id={`answer-${index}`}
-                  />
-                  <label htmlFor={`answer-${index}`} className="text-sm font-medium mr-2">
-                    {isCorrect ? "Richtig" : "Falsch"}
-                  </label>
-                  <Input
-                    value={answer}
-                    onChange={(e) => handleAnswerChange(index, e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button variant="destructive" size="sm" onClick={() => handleRemoveAnswer(index)}>
-                    Entfernen
-                  </Button>
+                <Checkbox
+              checked={isCorrect}
+              onCheckedChange={() => toggleCorrectIndex(index)}
+              id={`answer-${index}`}
+            />
+            <label htmlFor={`answer-${index}`} className="text-sm font-medium mr-2">
+              {isCorrect ? "Richtig" : "Falsch"}
+            </label>
+            <div className="flex-1">
+              <Textarea
+                value={answer}
+                onChange={(e) => handleAnswerChange(index, e.target.value)}
+                className="min-h-[80px] font-mono text-sm"  // font-mono for better code editing
+                placeholder="Antwort (Markdown und Umbrüche erlaubt)..."
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Tipp: Verwende `\n` für Umbrüche oder Markdown-Syntax
+              </p>
+            </div>
+            <Button variant="destructive" size="sm" onClick={() => handleRemoveAnswer(index)}>
+              Entfernen
+            </Button>
                   <Button
                     variant="outline"
                     size="sm"

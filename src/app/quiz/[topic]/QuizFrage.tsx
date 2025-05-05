@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import ReactMarkdown from "react-markdown"
-import Markdown from 'react-markdown'
 import rehypeHighlight from "rehype-highlight"
 import "highlight.js/styles/github.css"
 import { Progress } from "@/components/ui/progress"
 import { areSetsEqual } from "@/lib/array"
+import { Checkbox } from "@/components/ui/checkbox"
 
 type QuestionProps = {
   id: string
@@ -55,6 +55,18 @@ export default function QuizFrage({
     setIsCorrect(null)
   }, [question])
 
+  // Hilfsfunktion um \n in echte Umbrüche zu konvertieren
+  const renderTextWithLinebreaks = (text: string) => {
+    // Konvertiere \n zu echten Umbrüchen für die Anzeige
+    const parts = text.split(/\\n/g)
+    return parts.map((part, index) => (
+      <span key={index}>
+        {part}
+        {index < parts.length - 1 && <br />}
+      </span>
+    ))
+  }
+
   const toggleIndex = (index: number) => {
     setSelectedIndexes((prev) => {
       // Wenn nur eine Antwort erlaubt ist (Single-Choice)
@@ -89,7 +101,7 @@ export default function QuizFrage({
     setIsCorrect(localIsCorrect)
     setSubmitted(true)
   
-    // 2. Fortschritt async an Backend senden (non-blocking)
+    // Fortschritt async an Backend senden
     fetch("/api/progress", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -106,55 +118,53 @@ export default function QuizFrage({
   // Markdown Rendering Optionen
   const markdownOptions = {
     rehypePlugins: [rehypeHighlight]
-    // rehypePlugins: [rehypeHighlight, rehypeRaw],
-    // remarkPlugins: [remarkBreaks]
   }
 
   return (
     <Card className="w-full max-w-2xl mx-auto space-y-6 p-6">
       <CardContent className="space-y-6">
         {/* Scrollbare Fortschrittsleiste mit Zahlen */}
-{typeof currentIndex === "number" && typeof total === "number" && (
-  <div className="relative mb-4">
-    <div className="flex justify-start items-center overflow-x-auto py-2 px-4 max-w-full">
-      <div 
-        className="flex gap-2 transition-transform"
-        style={{
-          transform: `translateX(${Math.max(0, Math.min(total - 10, currentIndex - 5)) * -40}px)`,
-        }}
-      >
-        {Array.from({ length: total }).map((_, index) => {
-          const isActive = index === currentIndex
-          const isDone = answered?.[index]
+        {typeof currentIndex === "number" && typeof total === "number" && (
+          <div className="relative mb-4">
+            <div className="flex justify-start items-center overflow-x-auto py-2 px-4 max-w-full">
+              <div 
+                className="flex gap-2 transition-transform"
+                style={{
+                  transform: `translateX(${Math.max(0, Math.min(total - 10, currentIndex - 5)) * -40}px)`,
+                }}
+              >
+                {Array.from({ length: total }).map((_, index) => {
+                  const isActive = index === currentIndex
+                  const isDone = answered?.[index]
 
-          return (
-            <button
-              key={index}
-              className={`flex items-center justify-center w-8 h-8 rounded-full border transition hover:scale-110 flex-shrink-0
-                ${isActive 
-                  ? "bg-primary text-white border-primary font-medium" 
-                  : isDone 
-                    ? "bg-gray-400 text-white border-gray-500" 
-                    : "bg-muted text-gray-500 border-gray-200"}`}
-              onClick={() => onJumpTo?.(index)}
-              title={`Frage ${index + 1}`}
-            >
-              {index + 1}
-            </button>
-          )
-        })}
-      </div>
-    </div>
-    
-    {/* Visueller Hinweis für Scroll */}
-    {currentIndex < total - 10 && (
-      <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none"></div>
-    )}
-    {currentIndex > 5 && (
-      <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent pointer-events-none"></div>
-    )}
-  </div>
-)}
+                  return (
+                    <button
+                      key={index}
+                      className={`flex items-center justify-center w-8 h-8 rounded-full border transition hover:scale-110 flex-shrink-0
+                        ${isActive 
+                          ? "bg-primary text-white border-primary font-medium" 
+                          : isDone 
+                            ? "bg-gray-400 text-white border-gray-500" 
+                            : "bg-muted text-gray-500 border-gray-200"}`}
+                      onClick={() => onJumpTo?.(index)}
+                      title={`Frage ${index + 1}`}
+                    >
+                      {index + 1}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            
+            {/* Visueller Hinweis für Scroll */}
+            {currentIndex < total - 10 && (
+              <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none"></div>
+            )}
+            {currentIndex > 5 && (
+              <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent pointer-events-none"></div>
+            )}
+          </div>
+        )}
 
         {/* Richtige Antworten Skala */}
         {typeof correctCount === "number" && typeof answeredCount === "number" && answeredCount > 0 && (
@@ -180,8 +190,8 @@ export default function QuizFrage({
             : `Wähle maximal ${maxSelections} Antworten aus (${selectedIndexes.length}/${maxSelections} gewählt)`}
         </p>
 
-        {/* Antworten */}
-        <div className="space-y-2">
+        {/* Antworten mit Textfeldern und Checkboxen */}
+        <div className="space-y-3">
           {answers.map((answer, index) => {
             const isSelected = selectedIndexes.includes(index)
             const isCorrectAnswer = correctIndexes.includes(index)
@@ -189,25 +199,41 @@ export default function QuizFrage({
             const isDisabled = submitted || (!isSelected && selectedIndexes.length >= maxSelections && maxSelections > 1)
 
             return (
-              <Button
+              <div 
                 key={index}
-                variant={isSelected ? "outline" : "ghost"}
-                onClick={() => toggleIndex(index)}
-                disabled={isDisabled}
-                className={`w-full justify-start whitespace-normal text-left ${
+                className={`flex items-start space-x-3 p-4 rounded-md border ${
                   submitted && isCorrectAnswer
-                    ? "ring-2 ring-green-500"
+                    ? "border-green-500 bg-green-50 dark:bg-green-900/20"
                     : submitted && isWrongAnswer
-                    ? "ring-2 ring-red-500"
-                    : ""
+                    ? "border-red-500 bg-red-50 dark:bg-red-900/20"
+                    : "border-border"
                 }`}
               >
-                <div className="w-full prose prose-sm max-w-none">
-                  <Markdown>
-                    {answer}
-                  </Markdown>
-                </div>
-              </Button>
+                <Checkbox
+                  id={`answer-${index}`}
+                  checked={isSelected}
+                  onCheckedChange={() => !isDisabled && toggleIndex(index)}
+                  disabled={isDisabled}
+                  className="mt-1"
+                />
+                <label 
+                  htmlFor={`answer-${index}`} 
+                  className={`flex-1 cursor-pointer ${isDisabled ? 'cursor-not-allowed opacity-70' : ''}`}
+                >
+                  <div className="prose prose-sm max-w-none">
+                    {/* Unterscheidung: Wenn die Antwort \n enthält, zeige HTML an, ansonsten Markdown */}
+                    {answer.includes('\\n') ? (
+                      <div className="font-mono text-sm">
+                        {renderTextWithLinebreaks(answer)}
+                      </div>
+                    ) : (
+                      <ReactMarkdown {...markdownOptions}>
+                        {answer}
+                      </ReactMarkdown>
+                    )}
+                  </div>
+                </label>
+              </div>
             )
           })}
         </div>
@@ -218,7 +244,7 @@ export default function QuizFrage({
             onClick={handleSubmit}
             disabled={selectedIndexes.length === 0}
           >
-            {correctIndexes.length > 1 ? "Bestätigen" : "Bestätigen"}
+            {maxSelections === 1 ? "Bestätigen" : "Bestätigen"}
           </Button>
         )}
 
