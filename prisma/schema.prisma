@@ -8,14 +8,19 @@ datasource db {
 }
 
 model User {
-  id                String         @id @default(cuid())
-  email             String         @unique
+  id                String             @id @default(cuid())
+  email             String             @unique
   name              String?
-  createdAt         DateTime       @default(now())
-  role              Role           @default(USER)
-  nick_name         String?        @default("nickname")
-  showInLeaderboard Boolean?       @default(false)
+  createdAt         DateTime           @default(now())
+  role              Role               @default(USER)
+  nick_name         String?            @default("nickname")
+  showInLeaderboard Boolean?
+  classId           String?
+  CourseEnrollment  CourseEnrollment[]
+  Class             Class?             @relation(fields: [classId], references: [id])
   progress          UserProgress[]
+
+  @@index([classId])
 }
 
 model Question {
@@ -30,11 +35,14 @@ model Question {
   createdAt        DateTime       @default(now())
   correctIndexes   Int[]
   language         String?        @default("de")
+  courseId         String?
+  Course           Course?        @relation(fields: [courseId], references: [id])
   progress         UserProgress[]
 
   @@index([level])
   @@index([topic])
   @@index([language])
+  @@index([courseId])
 }
 
 model UserProgress {
@@ -57,9 +65,67 @@ model UserProgress {
   @@index([userId])
 }
 
+model Class {
+  id          String        @id
+  name        String
+  description String?
+  startDate   DateTime
+  endDate     DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime
+  ClassCourse ClassCourse[]
+  User        User[]
+
+  @@index([name])
+}
+
+model ClassCourse {
+  id        String    @id
+  classId   String
+  courseId  String
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+  Class     Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  Course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, courseId])
+  @@index([classId])
+  @@index([courseId])
+}
+
+model Course {
+  id               String             @id
+  name             String
+  description      String?
+  coverImage       String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  ClassCourse      ClassCourse[]
+  CourseEnrollment CourseEnrollment[]
+  Question         Question[]
+
+  @@index([name])
+}
+
+model CourseEnrollment {
+  id              String    @id
+  userId          String
+  courseId        String
+  enrolledAt      DateTime  @default(now())
+  completedAt     DateTime?
+  progressPercent Float     @default(0)
+  Course          Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  User            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([courseId])
+  @@index([userId])
+}
+
 enum Role {
   USER
   ADMIN
+  TEACHER
 }
 
 enum Difficulty {

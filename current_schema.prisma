@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String         @id @default(cuid())
+  email             String         @unique
+  name              String?
+  createdAt         DateTime       @default(now())
+  role              Role           @default(USER)
+  nick_name         String?        @default("nickname")
+  showInLeaderboard Boolean?
+  progress          UserProgress[]
+}
+
+model Question {
+  id               String         @id @default(cuid())
+  question         String
+  answers          String
+  topic            String
+  subtopic         String
+  level            Difficulty
+  explanation      String
+  explanationWrong String
+  createdAt        DateTime       @default(now())
+  correctIndexes   Int[]
+  language         String?        @default("de")
+  progress         UserProgress[]
+
+  @@index([level])
+  @@index([topic])
+  @@index([language])
+}
+
+model UserProgress {
+  id           String    @id @default(cuid())
+  userId       String
+  questionId   String
+  attempts     Int       @default(0)
+  wrongAnswers Int       @default(0)
+  lastSeen     DateTime?
+  nextReview   DateTime?
+  nextRound    Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  question     Question  @relation(fields: [questionId], references: [id])
+  user         User      @relation(fields: [userId], references: [id])
+
+  @@unique([userId, questionId])
+  @@unique([userId, questionId], map: "user_question_idx")
+  @@index([questionId])
+  @@index([userId])
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Difficulty {
+  easy
+  medium
+  hard
+}
+
+
