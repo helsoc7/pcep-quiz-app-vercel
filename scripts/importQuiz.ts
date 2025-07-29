@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 const logFile = './import.log';
 fs.writeFileSync(logFile, ''); // Log zurücksetzen
 
-const file = '/Users/helenhaveloh/workspace/projects/quiz-app/questions/01_intermediate.md'; // dein Dateipfad
+const file = '/Users/helenhaveloh/workspace/projects/pcep-quiz-app-vercel/questions/scrum/scrum02.md'; // dein Dateipfad
 const markdown = fs.readFileSync(file, 'utf8');
 
 function log(message: string) {
