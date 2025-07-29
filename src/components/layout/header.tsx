@@ -32,6 +32,9 @@ export default function Header() {
         <Link href="/faq" className="flex items-center gap-2 hover:text-black transition">
           <HelpCircle className="h-4 w-4" />
           FAQ
+        </Link><Link href="/exam-mode-scrum" className="flex items-center gap-2 hover:text-black transition">
+          <HelpCircle className="h-4 w-4" />
+          PSM I
         </Link>
 
         {/* Nur für Admins */}
